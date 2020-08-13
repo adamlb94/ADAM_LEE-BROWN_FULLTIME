@@ -1,6 +1,8 @@
 #include "common.h"
 #include <unordered_map>
 
+using namespace multi_agent_planning;
+
 const std::string NODE_NAME = "planner";
 
 /**
@@ -9,22 +11,22 @@ const std::string NODE_NAME = "planner";
 class Agent {
 private:
     std::string id;
-    multi_agent_planning::Position currentPos;
-    multi_agent_planning::Position goalPos;
+    Position currentPos;
+    Position goalPos;
     /* Planned path, not including the current and goal position */
-    std::vector<multi_agent_planning::Position> path;
+    std::vector<Position> path;
 
 public:
-    Agent(std::string id, multi_agent_planning::Position pos) {
+    Agent(std::string id, Position pos) {
         this->id = id;
         setCurrentPos(pos);
     }
 
-    multi_agent_planning::Position getCurrentPos() {
+    Position getCurrentPos() {
         return currentPos;
     }
 
-    multi_agent_planning::Position getGoalPos() {
+    Position getGoalPos() {
         return goalPos;
     }
 
@@ -32,19 +34,19 @@ public:
         return id;
     }
 
-    std::vector<multi_agent_planning::Position> getPath() {
+    std::vector<Position> getPath() {
         return path;
     }
 
-    void setCurrentPos(multi_agent_planning::Position pos) {
+    void setCurrentPos(Position pos) {
         currentPos = pos;
     }
 
-    void setGoalPos(multi_agent_planning::Position pos) {
+    void setGoalPos(Position pos) {
         goalPos = pos;
     }
 
-    void setPath(std::vector<multi_agent_planning::Position> path) {
+    void setPath(std::vector<Position> path) {
         this->path = path;
     }
 
@@ -72,9 +74,9 @@ private:
     /**
      * Callback for the agent_feedback topic.
      */
-    void agentFeedbackCallback(const multi_agent_planning::AgentPos::ConstPtr& msg) {
+    void agentFeedbackCallback(const AgentPos::ConstPtr& msg) {
         std::string id = (std::string)msg->id;
-        multi_agent_planning::Position pos = (multi_agent_planning::Position)msg->position;
+        Position pos = (Position)msg->position;
 
         auto it = agents.find(id);
         if (it == agents.end()) {
@@ -91,8 +93,8 @@ private:
     /**
      * Callback for the get_plan service.
      */
-    bool getPlanCallback(multi_agent_planning::GetPlan::Request  &req,
-                         multi_agent_planning::GetPlan::Response &res) {
+    bool getPlanCallback(GetPlan::Request  &req,
+                         GetPlan::Response &res) {
         std::string id = (std::string)req.id;
         auto it = agents.find(id);
 
@@ -102,7 +104,7 @@ private:
             return false;
         }
 
-        std::vector<multi_agent_planning::Position> path;
+        std::vector<Position> path;
         path.push_back(it->second.getCurrentPos());
         path.push_back(it->second.getGoalPos());
         it->second.setPath(path);
@@ -116,8 +118,8 @@ private:
     /**
      * Callback for the update_goal service.
      */
-    bool updateGoalCallback(multi_agent_planning::UpdateGoal::Request  &req,
-                            multi_agent_planning::UpdateGoal::Response &res) {
+    bool updateGoalCallback(UpdateGoal::Request  &req,
+                            UpdateGoal::Response &res) {
         std::string id = (std::string)req.id;
 
         auto it = agents.find(id);

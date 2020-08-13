@@ -1,6 +1,8 @@
 #include "common.h"
 #include <sstream>
 
+using namespace multi_agent_planning;
+
 const std::string NODE_NAME = "agent";
 
 /**
@@ -9,8 +11,8 @@ const std::string NODE_NAME = "agent";
 class Agent {
 private:
     std::string id;
-    multi_agent_planning::Position pos;
-    std::vector<multi_agent_planning::Position> path;
+    Position pos;
+    std::vector<Position> path;
 
     std::unique_ptr<ros::NodeHandle> nodeHandle;
     ros::Publisher agentFeedbackPublisher;
@@ -21,7 +23,7 @@ private:
      * Publishes the agent's current position.
      */
     int publishPos() {
-        multi_agent_planning::AgentPos agentPos;
+        AgentPos agentPos;
         agentPos.id = id;
         agentPos.position = pos;
         agentFeedbackPublisher.publish(agentPos);
@@ -33,7 +35,7 @@ private:
      * Notifies the planning node of the agent's goal position.
      */
     int updateGoal() {
-        multi_agent_planning::UpdateGoal srv;
+        UpdateGoal srv;
         srv.request.id = id;
         srv.request.position = pos;
 
@@ -49,14 +51,14 @@ private:
      * Requests a plan from the planning node.
      */
     int getPlan() {
-        multi_agent_planning::GetPlan srv;
+        GetPlan srv;
         srv.request.id = id;
 
         if (getPlanClient.call(srv)) {
-            path = (std::vector<multi_agent_planning::Position>)srv.response.path;
+            path = (std::vector<Position>)srv.response.path;
 
             ROS_INFO("(getPlan): Plan:");
-            for (multi_agent_planning::Position pos : path) {
+            for (Position pos : path) {
                 ROS_INFO("%f, %f, %f", pos.x, pos.y, pos.theta);
             }
         } else {
@@ -86,9 +88,9 @@ public:
         pos.theta = atoi(argv[4]);
 
         nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
-        agentFeedbackPublisher = nodeHandle->advertise<multi_agent_planning::AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
-        getPlanClient = nodeHandle->serviceClient<multi_agent_planning::GetPlan>(GET_PLAN_SERVICE);
-        updateGoalClient = nodeHandle->serviceClient<multi_agent_planning::UpdateGoal>(UPDATE_GOAL_SERVICE);
+        agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
+        getPlanClient = nodeHandle->serviceClient<GetPlan>(GET_PLAN_SERVICE);
+        updateGoalClient = nodeHandle->serviceClient<UpdateGoal>(UPDATE_GOAL_SERVICE);
 
         return 0;
     }
