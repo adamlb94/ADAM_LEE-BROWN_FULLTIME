@@ -1,0 +1,4 @@
+string   id
+Position position
+---
+bool     result
