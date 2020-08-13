@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     AgentPos.msg
+    Position.msg
 )
 
 add_service_files(

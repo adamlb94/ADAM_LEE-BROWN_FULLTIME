@@ -8,8 +8,9 @@ const std::string NODE_NAME = "agent";
  */
 class Agent {
 private:
-    std::string serial_id;
-    Position pos;
+    std::string id;
+    multi_agent_planning::Position pos;
+    std::vector<multi_agent_planning::Position> path;
 
     std::unique_ptr<ros::NodeHandle> nodeHandle;
     ros::Publisher agentFeedbackPublisher;
@@ -21,10 +22,8 @@ private:
      */
     int publishPos() {
         multi_agent_planning::AgentPos agentPos;
-        agentPos.serial_id = serial_id;
-        agentPos.x = pos.x;
-        agentPos.y = pos.y;
-        agentPos.theta = pos.theta;
+        agentPos.id = id;
+        agentPos.position = pos;
         agentFeedbackPublisher.publish(agentPos);
 
         ros::spinOnce();
@@ -35,13 +34,11 @@ private:
      */
     int updateGoal() {
         multi_agent_planning::UpdateGoal srv;
-        srv.request.serial_id = serial_id;
-        srv.request.x = pos.x;
-        srv.request.y = pos.y;
-        srv.request.theta = pos.theta;
+        srv.request.id = id;
+        srv.request.position = pos;
 
         if (updateGoalClient.call(srv)) {
-            ROS_INFO("(updateGoal) result: %d", (bool)srv.response.result);
+            ROS_INFO("(updateGoal) result: %f", (bool)srv.response.result);
         } else {
             ROS_ERROR("Failed to call service %s", UPDATE_GOAL_SERVICE);
             return 1;
@@ -53,15 +50,15 @@ private:
      */
     int getPlan() {
         multi_agent_planning::GetPlan srv;
-        srv.request.serial_id = serial_id;
+        srv.request.id = id;
 
         if (getPlanClient.call(srv)) {
-            Position planPos;
-            planPos.x = (int)srv.response.x;
-            planPos.y = (int)srv.response.y;
-            planPos.theta = (int)srv.response.theta;
+            path = (std::vector<multi_agent_planning::Position>)srv.response.path;
 
-            ROS_INFO("(getPlan): Plan = %d, %d, %d", planPos.x, planPos.y, planPos.theta);
+            ROS_INFO("(getPlan): Plan:");
+            for (multi_agent_planning::Position pos : path) {
+                ROS_INFO("%f, %f, %f", pos.x, pos.y, pos.theta);
+            }
         } else {
             ROS_ERROR("Failed to call service %s", GET_PLAN_SERVICE);
             return 1;
@@ -83,7 +80,7 @@ public:
             return 1;
         }
 
-        serial_id = argv[1];
+        id = argv[1];
         pos.x = atoi(argv[2]);
         pos.y = atoi(argv[3]);
         pos.theta = atoi(argv[4]);

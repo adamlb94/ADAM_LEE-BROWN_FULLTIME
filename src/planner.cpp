@@ -8,41 +8,51 @@ const std::string NODE_NAME = "planner";
  */
 class Agent {
 private:
-    std::string serial_id;
-    Position currentPos;
-    Position goalPos;
+    std::string id;
+    multi_agent_planning::Position currentPos;
+    multi_agent_planning::Position goalPos;
+    /* Planned path, not including the current and goal position */
+    std::vector<multi_agent_planning::Position> path;
 
 public:
-    Agent(std::string id, Position pos) {
-        serial_id = id;
+    Agent(std::string id, multi_agent_planning::Position pos) {
+        this->id = id;
         setCurrentPos(pos);
     }
 
-    Position getCurrentPos() {
+    multi_agent_planning::Position getCurrentPos() {
         return currentPos;
     }
 
-    Position getGoalPos() {
+    multi_agent_planning::Position getGoalPos() {
         return goalPos;
     }
 
     std::string getId() {
-        return serial_id;
+        return id;
     }
 
-    void setCurrentPos(Position pos) {
+    std::vector<multi_agent_planning::Position> getPath() {
+        return path;
+    }
+
+    void setCurrentPos(multi_agent_planning::Position pos) {
         currentPos = pos;
     }
 
-    void setGoalPos(Position pos) {
+    void setGoalPos(multi_agent_planning::Position pos) {
         goalPos = pos;
+    }
+
+    void setPath(std::vector<multi_agent_planning::Position> path) {
+        this->path = path;
     }
 
     std::string description() {
         std::ostringstream oss;
-        oss << serial_id << " "
-            << "Current pos: (" << currentPos.x << "," << currentPos.y << "," <<  currentPos.theta << ") "
-            << "Goal pos: (" << goalPos.x << "," << goalPos.y << "," <<  goalPos.theta << ")";
+        oss << (std::string)id << " "
+            << "Current pos: (" << (double)currentPos.x << "," << (double)currentPos.y << "," <<  (double)currentPos.theta << ") "
+            << "Goal pos: (" << (double)goalPos.x << "," << (double)goalPos.y << "," <<  (double)goalPos.theta << ")";
         return oss.str();
     }
 };
@@ -63,11 +73,8 @@ private:
      * Callback for the agent_feedback topic.
      */
     void agentFeedbackCallback(const multi_agent_planning::AgentPos::ConstPtr& msg) {
-        std::string id = (std::string)msg->serial_id;
-        Position pos;
-        pos.x = (int)msg->x;
-        pos.y = (int)msg->y;
-        pos.theta = (int)msg->theta;
+        std::string id = (std::string)msg->id;
+        multi_agent_planning::Position pos = (multi_agent_planning::Position)msg->position;
 
         auto it = agents.find(id);
         if (it == agents.end()) {
@@ -86,25 +93,23 @@ private:
      */
     bool getPlanCallback(multi_agent_planning::GetPlan::Request  &req,
                          multi_agent_planning::GetPlan::Response &res) {
-        std::string id = (std::string)req.serial_id;
+        std::string id = (std::string)req.id;
         auto it = agents.find(id);
 
         if (it == agents.end()) {
             ROS_WARN("(getPlanCallback) agent not found!");
-            res.x = -1;
-            res.y = -1;
-            res.theta = -1;
+            // TODO: Need to return message?
             return false;
         }
 
-        Position currentPos = it->second.getCurrentPos();
-        // Position goalPos = it->second.getGoalPos();
-        res.x = 1;//currentPos.x + goalPos.x;
-        res.y = 2;//currentPos.y + goalPos.y;
-        res.theta = 3;//currentPos.theta + goalPos.theta;
+        std::vector<multi_agent_planning::Position> path;
+        path.push_back(it->second.getCurrentPos());
+        path.push_back(it->second.getGoalPos());
+        it->second.setPath(path);
 
-        ROS_INFO("(getPlanCallback) Created plan for agent serial_id=%s: x=%d, y=%d, theta=%d", ((std::string)req.serial_id).c_str(), (int)res.x, (int)res.y, (int)res.theta);
+        res.path = path;
 
+        ROS_INFO("(getPlanCallback) Created plan for agent id=%s", ((std::string)req.id).c_str());
         return true;
     }
 
@@ -113,17 +118,13 @@ private:
      */
     bool updateGoalCallback(multi_agent_planning::UpdateGoal::Request  &req,
                             multi_agent_planning::UpdateGoal::Response &res) {
-        std::string id = (std::string)req.serial_id;
-        Position pos;
-        pos.x = (int)req.x;
-        pos.y = (int)req.y;
-        pos.theta = (int)req.theta;
+        std::string id = (std::string)req.id;
 
         auto it = agents.find(id);
         if (it == agents.end()) {
             // TODO: handle if agent does not exist in map
         } else {
-            it->second.setGoalPos(pos);
+            it->second.setGoalPos(req.position);
             ROS_INFO("(updateGoalCallback) Updated agent: %s", it->second.description().c_str());
         }
 
