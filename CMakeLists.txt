@@ -18,6 +18,7 @@ add_message_files(
 add_service_files(
     FILES
     GetPlan.srv
+    UpdateGoal.srv
 )
 
 generate_messages(
