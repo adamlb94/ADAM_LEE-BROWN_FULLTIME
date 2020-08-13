@@ -1,5 +1,9 @@
 #include "common.h"
+
 #include <unordered_map>
+
+#define WIDTH 11
+#define HEIGHT 11
 
 using namespace multi_agent_planning;
 
@@ -60,6 +64,29 @@ public:
 };
 
 /**
+ * Roadmap for use by multi-agent path planner.
+ */
+class Roadmap {
+private:
+public:
+    bool roadmap[HEIGHT][WIDTH]; // TODO: make private
+
+    Roadmap() {
+        for (int x = 0; x < HEIGHT; x++)  {
+            for (int y = 0; y < WIDTH; y++) {
+                roadmap[x][y] = false;
+            }
+        }
+    }
+
+    void set(int x, int y, bool state) {
+        if (x >= 0 && x < HEIGHT && y >= 0 && y < WIDTH) {
+            roadmap[x][y] = state;
+        }
+    };
+};
+
+/**
  * Planning node that plans paths for agents.
  */
 class Planner {
@@ -70,6 +97,7 @@ private:
     ros::ServiceServer updateGoalServer;
 
     std::unordered_map<std::string, Agent> agents;
+    Roadmap roadmap;
 
     /**
      * Callback for the agent_feedback topic.
@@ -87,6 +115,14 @@ private:
         } else {
             it->second.setCurrentPos(pos);
             ROS_INFO("(agentFeedbackCallback) Updated agent: %s", it->second.description().c_str());
+        }
+
+        roadmap.set((int)pos.x, (int)pos.y, true);
+        for (int row = 0; row < HEIGHT; row++)  {
+            for (int col = 0; col < WIDTH; col++) {
+                std::cout << roadmap.roadmap[row][col] << ", ";
+            }
+            std::cout << std::endl;
         }
     }
 
@@ -160,8 +196,6 @@ public:
     }
 
 };
-
-
 
 int main(int argc, char **argv) {
     Planner planner;
