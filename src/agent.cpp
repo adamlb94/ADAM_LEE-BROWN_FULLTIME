@@ -42,7 +42,7 @@ private:
         if (updateGoalClient.call(srv)) {
             ROS_INFO("(updateGoal) result: %f", (bool)srv.response.result);
         } else {
-            ROS_ERROR("Failed to call service %s", UPDATE_GOAL_SERVICE);
+            ROS_ERROR("Failed to call service %s", UPDATE_GOAL_SERVICE.c_str());
             return 1;
         }
     }
@@ -62,7 +62,7 @@ private:
                 ROS_INFO("%f, %f, %f", pos.x, pos.y, pos.theta);
             }
         } else {
-            ROS_ERROR("Failed to call service %s", GET_PLAN_SERVICE);
+            ROS_ERROR("Failed to call service %s", GET_PLAN_SERVICE.c_str());
             return 1;
         }
     }
