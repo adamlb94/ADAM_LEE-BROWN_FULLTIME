@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <unordered_map>
 #include <queue>
 
@@ -42,7 +44,7 @@ public:
         return id;
     }
 
-    std::vector<Position> getShortestPath() {
+    std::vector<Position> getPath() {
         return path;
     }
 
@@ -130,7 +132,57 @@ private:
         p.theta = 0;
         return p;
     }
+    void displayRoadmap() {
+        ros::Publisher marker_pub = nodeHandle->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", WIDTH * HEIGHT);
 
+        visualization_msgs::MarkerArray gridPointMarkers;
+        // visualization_msgs::MarkerArray pathMarkers;
+        gridPointMarkers.markers.resize(WIDTH * HEIGHT);
+
+        int i = 0;
+        for ( int x = 0; x < HEIGHT; x++)
+        {   for ( int y = 0; y < WIDTH; y++)
+            {
+                gridPointMarkers.markers[i].header.frame_id = "/roadmap";
+                gridPointMarkers.markers[i].header.stamp = ros::Time::now();
+                gridPointMarkers.markers[i].ns = "roadmap";
+                gridPointMarkers.markers[i].action = visualization_msgs::Marker::ADD;
+                gridPointMarkers.markers[i].type = visualization_msgs::Marker::CYLINDER;
+                gridPointMarkers.markers[i].lifetime = ros::Duration();
+
+                gridPointMarkers.markers[i].id = i;
+
+                gridPointMarkers.markers[i].pose.position.x = x;
+                gridPointMarkers.markers[i].pose.position.y = y;
+                gridPointMarkers.markers[i].pose.position.z = 0;
+
+                gridPointMarkers.markers[i].scale.x = 0.2;
+                gridPointMarkers.markers[i].scale.y = 0.2;
+                gridPointMarkers.markers[i].scale.z = 0.1;
+
+                gridPointMarkers.markers[i].color.a = 1.0;
+                if (roadmap.roadmap[x][y]) {
+                    gridPointMarkers.markers[i].color.r = 50.0;
+                } else {
+                    gridPointMarkers.markers[i].color.r = 0.0;
+                }
+                gridPointMarkers.markers[i].color.g = 0.0;
+                gridPointMarkers.markers[i].color.b = 0.0;
+
+                i++;
+            }
+        }
+        // Publish the marker
+        while (marker_pub.getNumSubscribers() < 1)
+        {
+            if (!ros::ok())
+            {
+                return;
+            }
+            ROS_WARN_ONCE("Please create a subscriber to the marker");
+        }
+        marker_pub.publish(gridPointMarkers);
+    }
     /**
      * Find the shortest path between the given positions using the planPath algorithm, keeping track of previous nodes in the path.
      *
@@ -146,7 +198,7 @@ private:
 
         for (int x = 0; x < HEIGHT; x++) {
             for (int y = 0; y < WIDTH; y++) {
-                // roadmap.roadmap[x][y] = false; // TODO
+                roadmap.roadmap[x][y] = false; // TODO
                 visited[x][y] = false;
                 prevPos[x][y] = currentPos;
             }
@@ -221,18 +273,20 @@ private:
      *
      * @param currentPos the agent's current position
      * @param goalPos the agent's target position
+     * @return the shortest path
      */
-    void getShortestPath(Position currentPos, Position goalPos) {
+    std::vector<Position> getShortestPath(Position currentPos, Position goalPos) {
+        std::vector<Position> path;
         /* Previous position of a potential path for every position in the roadmap */
         Position prevPos[HEIGHT][WIDTH];
 
         if (planPath(currentPos, goalPos, prevPos) == false) {
             ROS_WARN("(getShortestPath) No path between points.");
-            return;
+            return path;
         }
 
         /* Positions in the shortest path */
-        std::vector<Position> path = constructPath(currentPos, goalPos, prevPos);
+        path = constructPath(currentPos, goalPos, prevPos);
 
         std::cout << "Shortest path: ";
         for (Position p : path) {
@@ -248,6 +302,8 @@ private:
             }
             std::cout << std::endl;
         }
+
+        return path;
     }
 
     /**
@@ -264,11 +320,11 @@ private:
             return false;
         }
 
-        getShortestPath(it->second.getCurrentPos(), it->second.getGoalPos());
-        std::vector<Position> path;
-        path.push_back(it->second.getCurrentPos());
-        path.push_back(it->second.getGoalPos());
+        std::vector<Position> path = getShortestPath(it->second.getCurrentPos(), it->second.getGoalPos());
+        // path.push_back(it->second.getCurrentPos()); // TODO
+        // path.push_back(it->second.getGoalPos()); // TODO
         it->second.setPath(path);
+        displayRoadmap();
 
         res.path = path;
 
