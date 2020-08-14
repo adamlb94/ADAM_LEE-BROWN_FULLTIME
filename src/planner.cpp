@@ -171,7 +171,7 @@ public:
         return agentId;
     }
 
-    void displayPath(std::string id, Position currentPos, std::vector<Position> path, Position goalPos, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
+    void displayPath(std::string id, std::vector<Position> path, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
         ros::Publisher markerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", WIDTH * HEIGHT);
         ros::Publisher markerPublisher = nodeHandle->advertise<visualization_msgs::Marker>("visualization_marker", WIDTH * HEIGHT);
 
@@ -195,31 +195,29 @@ public:
         /* Points and lines */
         visualization_msgs::MarkerArray gridPointMarkers;
         gridPointMarkers.markers.resize(WIDTH * HEIGHT);
-        addAgentMarker(&gridPointMarkers, agentId, currentPos.x, currentPos.y);
-        geometry_msgs::Point agentPoint;
-        agentPoint.x = currentPos.x;
-        agentPoint.y = currentPos.y;
-        agentPoint.z = 0.0;
-        pathLineList.points.push_back(agentPoint);
 
-        for (Position pathPos : path) {
-            addPathMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
+        for (int i = 0; i < path.size(); i++) {
+            Position pathPos = path.at(i);
+
             geometry_msgs::Point p;
             p.x = pathPos.x;
             p.y = pathPos.y;
             p.z = 0.0;
 
-            /* Add two points: the end of the prev line and the start of the next line */
-            pathLineList.points.push_back(p);
+            if (i == 0) {
+                addAgentMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
+                std::cout << "AGENT" << std::endl;
+            } else if (i == path.size() - 1) {
+                addGoalMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
+                std::cout << "GOAL" << std::endl;
+            } else {
+                addPathMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
+                std::cout << "PATH" << std::endl;
+                /* Add two points: the end of the prev line and the start of the next line */
+                pathLineList.points.push_back(p);
+            }
             pathLineList.points.push_back(p);
         }
-
-        addGoalMarker(&gridPointMarkers, agentId, goalPos.x, goalPos.y);
-        geometry_msgs::Point goalPoint;
-        goalPoint.x = goalPos.x;
-        goalPoint.y = goalPos.y;
-        goalPoint.z = 0.0;
-        pathLineList.points.push_back(goalPoint);
 
         // Publish the marker
         while (markerArrayPublisher.getNumSubscribers() < 1 || markerPublisher.getNumSubscribers() < 1) {
@@ -334,29 +332,30 @@ private:
     }
 
     /**
-     * Returns the shortest path between the two given positions, using the given 2D array of previous positions.
+     * Constructs the shortest path between the two given positions, using the given 2D array of previous positions.
      *
+     * @param path the path to fill
      * @param currentPos the agent's current position
      * @param goalPos the agent's target position
      * @param prevPos 2D array of the same size as the roadmap, containing the previous position of a potential path for every position in the roadmap
      * @return the shortest path
      */
-    std::vector<Position> constructPath(Position currentPos, Position goalPos, Position prevPos[HEIGHT][WIDTH]) {
-        std::vector<Position> path;
-
+    void constructPath(std::vector<Position> *path, Position currentPos, Position goalPos, Position prevPos[HEIGHT][WIDTH]) {
         /* Start from the goalPos and work back */
         int x = goalPos.x;
         int y = goalPos.y;
+
+        path->push_back(goalPos);
         while (prevPos[x][y].x != currentPos.x || prevPos[x][y].y != currentPos.y) {
             Position prev = prevPos[x][y];
-            path.push_back(prev);
+            path->push_back(prev);
             x = prev.x;
             y = prev.y;
         }
+        path->push_back(currentPos);
 
         /* Return the path in the correct order */
-        std::reverse(path.begin(), path.end());
-        return path;
+        std::reverse(path->begin(), path->end());
     }
 
     /**
@@ -368,16 +367,19 @@ private:
      */
     std::vector<Position> getShortestPath(Position currentPos, Position goalPos) {
         std::vector<Position> path;
+
         /* Previous position of a potential path for every position in the roadmap */
         Position prevPos[HEIGHT][WIDTH];
 
         if (planPath(currentPos, goalPos, prevPos) == false) {
             ROS_WARN("(getShortestPath) No path between points.");
+
+            path.push_back(currentPos);
             return path;
         }
 
         /* Positions in the shortest path */
-        path = constructPath(currentPos, goalPos, prevPos);
+        constructPath(&path, currentPos, goalPos, prevPos);
 
         std::cout << "Shortest path: ";
         for (Position p : path) {
@@ -415,10 +417,9 @@ private:
         }
 
         std::vector<Position> path = getShortestPath(it->second.getCurrentPos(), it->second.getGoalPos());
-        // path.push_back(it->second.getCurrentPos()); // TODO
-        // path.push_back(it->second.getGoalPos()); // TODO
         it->second.setPath(path);
-        roadmap.displayPath(id, it->second.getCurrentPos(), path, it->second.getGoalPos(), nodeHandle);
+
+        roadmap.displayPath(id, path, nodeHandle);
 
         res.path = path;
 
