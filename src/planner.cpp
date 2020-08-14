@@ -92,27 +92,27 @@ public:
     };
 
     void addGridPointMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y) {
-        addMarker(gridPointMarkers, x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
+        addMarker(gridPointMarkers, "grid", x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
     }
 
-    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y) {
-        addMarker(gridPointMarkers, x, y, 0.90, 0.90, 0.0, 0.0, 1.0);
+    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
+        addMarker(gridPointMarkers, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 1.0);
     }
 
-    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y) {
-        addMarker(gridPointMarkers, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
+    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
+        addMarker(gridPointMarkers, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
     }
 
-    void addPathMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y) {
-        addMarker(gridPointMarkers, x, y, 0.90, 0.90, 1.0, 0.0, 0.0);
+    void addPathMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
+        addMarker(gridPointMarkers, agentId, x, y, 0.90, 0.90, 1.0, 0.0, 0.0);
     }
 
-    void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y, double xScale, double yScale, double red, double green, double blue) {
+    void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
         int i = (x * WIDTH) + y;
 
-        gridPointMarkers->markers[i].header.frame_id = "/roadmap";
+        gridPointMarkers->markers[i].header.frame_id = "roadmap";
         gridPointMarkers->markers[i].header.stamp = ros::Time::now();
-        gridPointMarkers->markers[i].ns = "roadmap";
+        gridPointMarkers->markers[i].ns = ns;
         gridPointMarkers->markers[i].action = visualization_msgs::Marker::ADD;
         gridPointMarkers->markers[i].type = visualization_msgs::Marker::CYLINDER;
         gridPointMarkers->markers[i].lifetime = ros::Duration();
@@ -150,12 +150,28 @@ public:
             if (!ros::ok()) {
                 return;
             }
-            ROS_WARN_ONCE("Please create a subscriber to the marker");
+            ROS_WARN("Please create a subscriber to the marker");
+            ros::Duration(0.5).sleep();
         }
         markerArrayPublisher.publish(gridPointMarkers);
     }
 
-    void displayPath(Position currentPos, std::vector<Position> path, Position goalPos, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
+    /**
+     * Returns an rviz namespace-appropriate namespace for the path of the agent with the given ID.
+     */
+    std::string toAlnum(std::string id) {
+        std::string agentId = "";
+        /* Remove all non-alphabetial characters from ID */
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.at(i);
+            if (isalnum(c)) {
+                agentId = agentId + c;
+            }
+        }
+        return agentId;
+    }
+
+    void displayPath(std::string id, Position currentPos, std::vector<Position> path, Position goalPos, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
         ros::Publisher markerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", WIDTH * HEIGHT);
         ros::Publisher markerPublisher = nodeHandle->advertise<visualization_msgs::Marker>("visualization_marker", WIDTH * HEIGHT);
 
@@ -165,7 +181,9 @@ public:
         pathLineList.header.frame_id = "/roadmap";
         pathLineList.header.stamp = ros::Time::now();
         pathLineList.action = visualization_msgs::Marker::ADD;
-        pathLineList.ns = "path";
+
+        std::string agentId = toAlnum(id);
+        pathLineList.ns = "path" + agentId;
         pathLineList.pose.orientation.w = 1.0;
         pathLineList.id = 0;
         pathLineList.type = visualization_msgs::Marker::LINE_LIST;
@@ -177,7 +195,7 @@ public:
         /* Points and lines */
         visualization_msgs::MarkerArray gridPointMarkers;
         gridPointMarkers.markers.resize(WIDTH * HEIGHT);
-        addAgentMarker(&gridPointMarkers, currentPos.x, currentPos.y);
+        addAgentMarker(&gridPointMarkers, agentId, currentPos.x, currentPos.y);
         geometry_msgs::Point agentPoint;
         agentPoint.x = currentPos.x;
         agentPoint.y = currentPos.y;
@@ -185,7 +203,7 @@ public:
         pathLineList.points.push_back(agentPoint);
 
         for (Position pathPos : path) {
-            addPathMarker(&gridPointMarkers, pathPos.x, pathPos.y);
+            addPathMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
             geometry_msgs::Point p;
             p.x = pathPos.x;
             p.y = pathPos.y;
@@ -196,7 +214,7 @@ public:
             pathLineList.points.push_back(p);
         }
 
-        addGoalMarker(&gridPointMarkers, goalPos.x, goalPos.y);
+        addGoalMarker(&gridPointMarkers, agentId, goalPos.x, goalPos.y);
         geometry_msgs::Point goalPoint;
         goalPoint.x = goalPos.x;
         goalPoint.y = goalPos.y;
@@ -204,13 +222,12 @@ public:
         pathLineList.points.push_back(goalPoint);
 
         // Publish the marker
-        while (markerArrayPublisher.getNumSubscribers() < 1 || markerPublisher.getNumSubscribers() < 1)
-        {
-            if (!ros::ok())
-            {
+        while (markerArrayPublisher.getNumSubscribers() < 1 || markerPublisher.getNumSubscribers() < 1) {
+            if (!ros::ok()) {
                 return;
             }
-            ROS_WARN_ONCE("Please create a subscriber to the marker");
+            ROS_WARN("Please create a subscriber to the marker");
+            ros::Duration(0.5).sleep();
         }
         markerArrayPublisher.publish(gridPointMarkers);
         markerPublisher.publish(pathLineList);
@@ -225,7 +242,6 @@ private:
     std::unique_ptr<ros::NodeHandle> nodeHandle;
     ros::Subscriber agentFeedbackSubscriber;
     ros::ServiceServer getPlanServer;
-    ros::ServiceServer updateGoalServer;
 
     std::unordered_map<std::string, Agent> agents;
 
@@ -273,7 +289,7 @@ private:
 
         for (int x = 0; x < HEIGHT; x++) {
             for (int y = 0; y < WIDTH; y++) {
-                roadmap.roadmap[x][y] = false; // TODO
+                // roadmap.roadmap[x][y] = false; // TODO
                 visited[x][y] = false;
                 prevPos[x][y] = currentPos;
             }
@@ -393,37 +409,20 @@ private:
             ROS_WARN("(getPlanCallback) agent not found!");
             // TODO: Need to return message?
             return false;
+        } else {
+            it->second.setGoalPos(req.goalPos);
+            ROS_INFO("(getPlanCallback) Updated agent: %s", it->second.description().c_str());
         }
 
         std::vector<Position> path = getShortestPath(it->second.getCurrentPos(), it->second.getGoalPos());
         // path.push_back(it->second.getCurrentPos()); // TODO
         // path.push_back(it->second.getGoalPos()); // TODO
         it->second.setPath(path);
-        roadmap.displayRoadmap(nodeHandle);
-        roadmap.displayPath(it->second.getCurrentPos(), path, it->second.getGoalPos(), nodeHandle);
+        roadmap.displayPath(id, it->second.getCurrentPos(), path, it->second.getGoalPos(), nodeHandle);
 
         res.path = path;
 
         ROS_INFO("(getPlanCallback) Created plan for agent id=%s", ((std::string)req.id).c_str());
-        return true;
-    }
-
-    /**
-     * Callback for the update_goal service.
-     */
-    bool updateGoalCallback(UpdateGoal::Request  & req,
-                            UpdateGoal::Response & res) {
-        std::string id = (std::string)req.id;
-
-        auto it = agents.find(id);
-        if (it == agents.end()) {
-            // TODO: handle if agent does not exist in map
-        } else {
-            it->second.setGoalPos(req.position);
-            ROS_INFO("(updateGoalCallback) Updated agent: %s", it->second.description().c_str());
-        }
-
-        res.result = true;
         return true;
     }
 
@@ -439,16 +438,17 @@ public:
         nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
 
         ROS_INFO("Ready to receive requests from agent.");
-        getPlanServer = nodeHandle->advertiseService(GET_PLAN_SERVICE, &Planner::getPlanCallback, this);
-        updateGoalServer = nodeHandle->advertiseService(UPDATE_GOAL_SERVICE, &Planner::updateGoalCallback, this);
-        ROS_INFO("Subscribed.");
         agentFeedbackSubscriber = nodeHandle->subscribe(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE, &Planner::agentFeedbackCallback, this);
+        getPlanServer = nodeHandle->advertiseService(GET_PLAN_SERVICE, &Planner::getPlanCallback, this);
+        ROS_INFO("Subscribed.");
     }
 
     /**
      * Executes the planner.
      */
     int execute() {
+        roadmap.displayRoadmap(nodeHandle);
+
         ros::spin();
     }
 

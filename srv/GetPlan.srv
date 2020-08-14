@@ -1,3 +1,4 @@
 string   id
+Position goalPos
 ---
 Position[] path
