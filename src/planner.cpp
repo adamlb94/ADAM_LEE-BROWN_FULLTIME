@@ -1,6 +1,7 @@
 #include "common.h"
 
 #include <unordered_map>
+#include <queue>
 
 #define WIDTH 11
 #define HEIGHT 11
@@ -8,6 +9,9 @@
 using namespace multi_agent_planning;
 
 const std::string NODE_NAME = "planner";
+
+const int x_directions[] = {1, 0, -1, 0};
+const int y_directions[] = {0, 1, 0, -1};
 
 /**
  * Planning node's representation of an agent.
@@ -38,7 +42,7 @@ public:
         return id;
     }
 
-    std::vector<Position> getPath() {
+    std::vector<Position> getShortestPath() {
         return path;
     }
 
@@ -97,6 +101,7 @@ private:
     ros::ServiceServer updateGoalServer;
 
     std::unordered_map<std::string, Agent> agents;
+
     Roadmap roadmap;
 
     /**
@@ -116,8 +121,127 @@ private:
             it->second.setCurrentPos(pos);
             ROS_INFO("(agentFeedbackCallback) Updated agent: %s", it->second.description().c_str());
         }
+    }
 
-        roadmap.set((int)pos.x, (int)pos.y, true);
+    Position position(int x, int y) {
+        Position p;
+        p.x = x;
+        p.y = y;
+        p.theta = 0;
+        return p;
+    }
+
+    /**
+     * Find the shortest path between the given positions using the planPath algorithm, keeping track of previous nodes in the path.
+     *
+     * @param currentPos the agent's current position
+     * @param goalPos the agent's target position
+     * @param prevPos 2D array of the same size as the roadmap, containing the previous position of a potential path for every position in the roadmap
+     * @return true if there is a path between the current and goal positions, false otherwise
+     */
+    bool planPath(Position currentPos, Position goalPos, Position prevPos[HEIGHT][WIDTH])
+    {
+        std::queue<Position> queue;
+        bool visited[HEIGHT][WIDTH];
+
+        for (int x = 0; x < HEIGHT; x++) {
+            for (int y = 0; y < WIDTH; y++) {
+                // roadmap.roadmap[x][y] = false; // TODO
+                visited[x][y] = false;
+                prevPos[x][y] = currentPos;
+            }
+        }
+
+        /* Insert start (currentPos) into queue */
+        int x = currentPos.x;
+        int y = currentPos.y;
+        visited[x][y] = true;
+        queue.push(position(x, y));
+
+        /* BFS traversal */
+        while (!queue.empty()) {
+            Position currPos = queue.front();
+            queue.pop();
+
+            /* Explore coordinates in above, below and to the sides of the current position */
+            for (int dir = 0; dir < sizeof(x_directions); dir++) {
+                x = currPos.x + x_directions[dir];
+                y = currPos.y + y_directions[dir];
+
+                if (x < 0 || x >= HEIGHT || y < 0 || y >= WIDTH) {
+                    /* Out of bounds of the roadmap */
+                    continue;
+                }
+                if (!visited[x][y] && !roadmap.roadmap[x][y]) {
+                    visited[x][y] = true;
+                    prevPos[x][y] = currPos;
+
+                    Position p = position(x, y);
+                    if (p == goalPos) {
+                        /* Reached the end */
+                        return true;
+                    }
+                    queue.push(p);
+                }
+            }
+        }
+
+        /* No path between points */
+        return false;
+    }
+
+    /**
+     * Returns the shortest path between the two given positions, using the given 2D array of previous positions.
+     *
+     * @param currentPos the agent's current position
+     * @param goalPos the agent's target position
+     * @param prevPos 2D array of the same size as the roadmap, containing the previous position of a potential path for every position in the roadmap
+     * @return the shortest path
+     */
+    std::vector<Position> constructPath(Position currentPos, Position goalPos, Position prevPos[HEIGHT][WIDTH]) {
+        std::vector<Position> path;
+
+        /* Start from the goalPos and work back */
+        int x = goalPos.x;
+        int y = goalPos.y;
+        while (prevPos[x][y].x != currentPos.x || prevPos[x][y].y != currentPos.y) {
+            Position prev = prevPos[x][y];
+            path.push_back(prev);
+            x = prev.x;
+            y = prev.y;
+        }
+
+        /* Return the path in the correct order */
+        std::reverse(path.begin(), path.end());
+        return path;
+    }
+
+    /**
+     * Finds the shortest path between the given positions. The given positions are NOT included in the path.
+     *
+     * @param currentPos the agent's current position
+     * @param goalPos the agent's target position
+     */
+    void getShortestPath(Position currentPos, Position goalPos) {
+        /* Previous position of a potential path for every position in the roadmap */
+        Position prevPos[HEIGHT][WIDTH];
+
+        if (planPath(currentPos, goalPos, prevPos) == false) {
+            ROS_WARN("(getShortestPath) No path between points.");
+            return;
+        }
+
+        /* Positions in the shortest path */
+        std::vector<Position> path = constructPath(currentPos, goalPos, prevPos);
+
+        std::cout << "Shortest path: ";
+        for (Position p : path) {
+            std::cout << "(" << p.x << "," << p.y << "),";
+            roadmap.set(p.x, p.y, true); // TODO: path should be non-blocking
+        }
+        std::cout << std::endl;
+
+        /* Print entire roadmap, with path shown as true values */
         for (int row = 0; row < HEIGHT; row++)  {
             for (int col = 0; col < WIDTH; col++) {
                 std::cout << roadmap.roadmap[row][col] << ", ";
@@ -129,8 +253,8 @@ private:
     /**
      * Callback for the get_plan service.
      */
-    bool getPlanCallback(GetPlan::Request  &req,
-                         GetPlan::Response &res) {
+    bool getPlanCallback(GetPlan::Request  & req,
+                         GetPlan::Response & res) {
         std::string id = (std::string)req.id;
         auto it = agents.find(id);
 
@@ -140,6 +264,7 @@ private:
             return false;
         }
 
+        getShortestPath(it->second.getCurrentPos(), it->second.getGoalPos());
         std::vector<Position> path;
         path.push_back(it->second.getCurrentPos());
         path.push_back(it->second.getGoalPos());
@@ -154,8 +279,8 @@ private:
     /**
      * Callback for the update_goal service.
      */
-    bool updateGoalCallback(UpdateGoal::Request  &req,
-                            UpdateGoal::Response &res) {
+    bool updateGoalCallback(UpdateGoal::Request  & req,
+                            UpdateGoal::Response & res) {
         std::string id = (std::string)req.id;
 
         auto it = agents.find(id);

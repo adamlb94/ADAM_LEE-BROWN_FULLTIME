@@ -37,7 +37,12 @@ private:
     int updateGoal() {
         UpdateGoal srv;
         srv.request.id = id;
-        srv.request.position = pos;
+
+        Position goalPos;
+        goalPos.x = 7;
+        goalPos.y = 7;
+        goalPos.theta = 0;
+        srv.request.position = goalPos;
 
         if (updateGoalClient.call(srv)) {
             ROS_INFO("(updateGoal) result: %f", (bool)srv.response.result);
