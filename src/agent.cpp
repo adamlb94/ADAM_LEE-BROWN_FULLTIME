@@ -1,5 +1,7 @@
 #include "agent.h"
 
+using namespace multi_agent_planning;
+
 int Agent::publishPos() {
     AgentPos agentPos;
     agentPos.id = id;

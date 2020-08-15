@@ -1,8 +1,6 @@
 #include "common.h"
 #include <sstream>
 
-using namespace multi_agent_planning;
-
 #define NODE_NAME "agent"
 
 /**
@@ -11,9 +9,9 @@ using namespace multi_agent_planning;
 class Agent {
 private:
     std::string id;
-    Position pos;
-    Position goalPos;
-    std::vector<Position> path;
+    multi_agent_planning::Position pos;
+    multi_agent_planning::Position goalPos;
+    std::vector<multi_agent_planning::Position> path;
 
     std::unique_ptr<ros::NodeHandle> nodeHandle;
     ros::Publisher agentFeedbackPublisher;
@@ -30,7 +28,7 @@ private:
     /**
      * Callback for the get_plan service.
      */
-    bool updateGoalCallback(UpdateGoal::Request  & req, UpdateGoal::Response & res);
+    bool updateGoalCallback(multi_agent_planning::UpdateGoal::Request &req, multi_agent_planning::UpdateGoal::Response &res);
 
     /**
      * Requests a plan from the planning node.
