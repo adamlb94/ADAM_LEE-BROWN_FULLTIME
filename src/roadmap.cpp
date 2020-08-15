@@ -1,8 +1,16 @@
 #include "roadmap.h"
+#include "ros/ros.h"
 #include <functional> // for std::hash
+#include <vector>
 
 using namespace multi_agent_planning;
 
+/**
+ * Constructor.
+ *
+ * @param nodeHandle the ROS node handle used for publishing to RVIZ
+ * @param pos the agent's current position
+ */
 void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
     for (int x = 0; x < WIDTH; x++)  {
         for (int y = 0; y < HEIGHT; y++) {
@@ -10,61 +18,105 @@ void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
         }
     }
 
+    /* Initialize publishers */
     gridMarkerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("grid_marker_array", WIDTH * HEIGHT);
     pathMarkerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("path_marker_array", WIDTH * HEIGHT);
     pathLinePublisher = nodeHandle->advertise<visualization_msgs::Marker>("path_line_marker", WIDTH * HEIGHT * 4);
 }
 
-void Roadmap::set(int x, int y, int state) {
+/**
+ * Set the value of the given x-y coordinate.
+ *
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @param value the value to set
+ */
+void Roadmap::set(int x, int y, int value) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
-        roadmap[x][y] = state;
+        roadmap[x][y] = value;
     }
 };
 
-void Roadmap::addGridPointMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y) {
+/**
+ * Add a grid marker to the given marker array at the given x-y coordinate.
+ *
+ * @param pointMarkers the marker array
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ */
+void Roadmap::addGridPointMarker(visualization_msgs::MarkerArray *pointMarkers, int x, int y) {
     int i = (x + (y * HEIGHT));
-    addMarker(gridPointMarkers, i, "grid", x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
+    addMarker(pointMarkers, i, "grid", x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
 }
 
-void Roadmap::addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
-    addMarker(gridPointMarkers, 0, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 0.0);
+/**
+ * Add an agent marker to the given marker array at the given x-y coordinate.
+ *
+ * @param pointMarkers the marker array
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ */
+void Roadmap::addAgentMarker(visualization_msgs::MarkerArray *pointMarkers, std::string agentId, int x, int y) {
+    addMarker(pointMarkers, 0, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 0.0);
 }
 
-void Roadmap::addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
-    addMarker(gridPointMarkers, 1, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
+/**
+ * Add a goal marker to the given marker array at the given x-y coordinate.
+ *
+ * @param pointMarkers the marker array
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ */
+void Roadmap::addGoalMarker(visualization_msgs::MarkerArray *pointMarkers, std::string agentId, int x, int y) {
+    addMarker(pointMarkers, 1, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
 }
 
-void Roadmap::addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
-    gridPointMarkers->markers[i].header.frame_id = "/roadmap";
-    gridPointMarkers->markers[i].header.stamp = ros::Time::now();
-    gridPointMarkers->markers[i].ns = ns;
-    gridPointMarkers->markers[i].action = visualization_msgs::Marker::ADD;
-    gridPointMarkers->markers[i].type = visualization_msgs::Marker::SPHERE;
-    gridPointMarkers->markers[i].lifetime = ros::Duration();
+/**
+ * Add a marker to the given marker array.
+ *
+ * @param pointMarkers the marker array
+ * @param i the index to insert in the marker array
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @param xScale the marker x-scale
+ * @param yScale the marker y-scale
+ * @param red the marker red color value
+ * @param blue the marker blue color value
+ * @param green the marker green color value
+ */
+void Roadmap::addMarker(visualization_msgs::MarkerArray *pointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
+    pointMarkers->markers[i].header.frame_id = "/roadmap";
+    pointMarkers->markers[i].header.stamp = ros::Time::now();
+    pointMarkers->markers[i].ns = ns;
+    pointMarkers->markers[i].action = visualization_msgs::Marker::ADD;
+    pointMarkers->markers[i].type = visualization_msgs::Marker::SPHERE;
+    pointMarkers->markers[i].lifetime = ros::Duration();
 
-    gridPointMarkers->markers[i].id = i;
+    pointMarkers->markers[i].id = i;
 
-    gridPointMarkers->markers[i].pose.orientation.x = 0.0;
-    gridPointMarkers->markers[i].pose.orientation.y = 0.0;
-    gridPointMarkers->markers[i].pose.orientation.z = 0.0;
-    gridPointMarkers->markers[i].pose.orientation.w = 1.0;
+    pointMarkers->markers[i].pose.orientation.x = 0.0;
+    pointMarkers->markers[i].pose.orientation.y = 0.0;
+    pointMarkers->markers[i].pose.orientation.z = 0.0;
+    pointMarkers->markers[i].pose.orientation.w = 1.0;
 
-    gridPointMarkers->markers[i].pose.position.x = x;
-    gridPointMarkers->markers[i].pose.position.y = y;
-    gridPointMarkers->markers[i].pose.position.z = 0;
+    pointMarkers->markers[i].pose.position.x = x;
+    pointMarkers->markers[i].pose.position.y = y;
+    pointMarkers->markers[i].pose.position.z = 0;
 
-    gridPointMarkers->markers[i].scale.x = xScale;
-    gridPointMarkers->markers[i].scale.y = yScale;
-    gridPointMarkers->markers[i].scale.z = xScale; // TODO
+    pointMarkers->markers[i].scale.x = xScale;
+    pointMarkers->markers[i].scale.y = yScale;
+    pointMarkers->markers[i].scale.z = xScale; // TODO
 
-    gridPointMarkers->markers[i].color.a = 1.0;
-    gridPointMarkers->markers[i].color.r = red;
-    gridPointMarkers->markers[i].color.g = green;
-    gridPointMarkers->markers[i].color.b = blue;
+    pointMarkers->markers[i].color.a = 1.0;
+    pointMarkers->markers[i].color.r = red;
+    pointMarkers->markers[i].color.g = green;
+    pointMarkers->markers[i].color.b = blue;
 }
 
+/**
+ * Displays the roadmap (grid points only).
+ */
 void Roadmap::displayRoadmap() {
-
     visualization_msgs::MarkerArray gridPointMarkers;
     gridPointMarkers.markers.resize(WIDTH * HEIGHT);
 
@@ -86,27 +138,40 @@ void Roadmap::displayRoadmap() {
 }
 
 /**
- * Returns an rviz namespace-appropriate namespace for the path of the agent with the given ID.
+ * Returns the given string, stripped of any non-alphanumeric characters.
+ * This creates an RVIZ namespace-appropriate namespace for the path of the agent with the given ID.
+ *
+ * @param s the string
+ * @return a new string with any non-alphanumeric characters removed
  */
-std::string Roadmap::toAlnum(std::string id) {
-    std::string agentId = "";
+std::string Roadmap::toAlnum(std::string s) {
+    std::string stripped = "";
     /* Remove all non-alphabetial characters from ID */
-    for (int i = 0; i < id.length(); i++) {
-        char c = id.at(i);
+    for (int i = 0; i < s.length(); i++) {
+        char c = s.at(i);
         if (isalnum(c)) {
-            agentId = agentId + c;
+            stripped = stripped + c;
         }
     }
-    return agentId;
+    return stripped;
 }
 
+/**
+ * Displays the path for an agent in RVIZ.
+ *
+ * @param id the agent's ID
+ * @param path the path to display
+ * @param s the string
+ * @return nodeHandle the ROS node handle
+ */
 void Roadmap::displayPath(std::string id, std::vector<Position> path, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
+    /* Create marker array for start and end positions */
     visualization_msgs::MarkerArray pathPointMarkers;
     pathPointMarkers.markers.resize(2);
 
+    /* Create marker for the path line */
     visualization_msgs::Marker pathLineList;
 
-    /* Path lines setup */
     pathLineList.header.frame_id = "/roadmap";
     pathLineList.header.stamp = ros::Time::now();
     pathLineList.action = visualization_msgs::Marker::ADD;
@@ -115,7 +180,6 @@ void Roadmap::displayPath(std::string id, std::vector<Position> path, std::uniqu
     pathLineList.ns = "path" + agentId;
 
     pathLineList.pose.orientation.w = 1.0;
-
     pathLineList.id = 0;
     pathLineList.type = visualization_msgs::Marker::LINE_LIST;
     pathLineList.scale.x = 0.2;
@@ -137,7 +201,6 @@ void Roadmap::displayPath(std::string id, std::vector<Position> path, std::uniqu
     /* Add start/end markers and points for the path line */
     visualization_msgs::MarkerArray gridPointMarkers;
     gridPointMarkers.markers.resize(WIDTH * HEIGHT);
-
     for (int i = 0; i < path.size(); i++) {
         Position pathPos = path.at(i);
 

@@ -1,5 +1,4 @@
 #include "path_cache.h"
-#include "ros/ros.h"
 
 using namespace multi_agent_planning;
 
@@ -9,9 +8,6 @@ using namespace multi_agent_planning;
 bool Point::operator<(const Point p) const {
     return x < p.x || (x == p.x && y < p.y);
 }
-
-/* Paths cache. Structure: map<startPoint, map<endPoint, path>> */
-std::map<Point, std::map<Point, std::vector<Position>>> paths;
 
 /**
  * Returns the Point representation of the given Position.
@@ -43,7 +39,7 @@ std::vector<Position> PathCache::get(Position startPos, Position endPos) {
 
         auto endIt = startIt->second.find(end);
         if (endIt != startIt->second.end()) {
-            ROS_INFO("(Cache.get) PATH EXISTS");
+            std::cout << "(Cache.get) PATH EXISTS" << std::endl;
             path = endIt->second;
         }
     }
@@ -58,7 +54,7 @@ std::vector<Position> PathCache::get(Position startPos, Position endPos) {
 void PathCache::put(std::vector<Position> path) {
     int pathSize = path.size();
     if (pathSize < 2) {
-        ROS_WARN("(Cache.put) Given path is too short");
+        std::cout << "(Cache.put) Given path is too short" << std::endl;
         return;
     }
 
@@ -73,12 +69,12 @@ void PathCache::put(std::vector<Position> path) {
             /* This start-end path has been added before */
             if (pathSize < endIt->second.size()) {
                 /* New path is shorter, use it */
-                ROS_INFO("(Cache.put) Updating path");
+                std::cout << "(Cache.put) Updating path" << std::endl;
                 endIt->second = path;
             }
         } else {
             /* Add end-path entry start point map */
-            ROS_INFO("(Cache.put) Start point exists, adding new path");
+            std::cout << "(Cache.put) Start point exists, adding new path" << std::endl;
             startIt->second.insert({end, path});
         }
     } else {
@@ -87,6 +83,6 @@ void PathCache::put(std::vector<Position> path) {
         endPathMap.insert({end, path});
 
         paths.insert({start, endPathMap});
-        ROS_INFO("(Cache.put) Adding new path");
+        std::cout << "(Cache.put) Adding new path" << std::endl;
     }
 }

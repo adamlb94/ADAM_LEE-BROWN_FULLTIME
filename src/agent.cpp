@@ -1,7 +1,18 @@
 #include "agent.h"
+#include "multi_agent_planning/AgentPos.h"
+#include "multi_agent_planning/GetPlan.h"
+
+/* ROS node name */
+#define NODE_NAME "agent"
+
+/* The service for agent nodes to have their end goal specified */
+#define UPDATE_GOAL_SERVICE "update_goal"
 
 using namespace multi_agent_planning;
 
+/**
+ * Publish the agent's current position on the /agent_feedback topic.
+ */
 int Agent::publishPos() {
     AgentPos agentPos;
     agentPos.id = id;
@@ -12,10 +23,12 @@ int Agent::publishPos() {
 }
 
 /**
- * Callback for the update_goal service.
+ * Callback for UPDATE_GOAL_SERVICE.
+ *
+ * @param req the service request
+ * @param res the service response
  */
-bool Agent::updateGoalCallback(UpdateGoal::Request  & req,
-                               UpdateGoal::Response & res) {
+bool Agent::updateGoalCallback(UpdateGoal::Request& req, UpdateGoal::Response &res) {
     goalPos.x = req.x;
     goalPos.y = req.y;
     goalPos.theta = req.theta;
@@ -23,12 +36,12 @@ bool Agent::updateGoalCallback(UpdateGoal::Request  & req,
 
     res.result = true;
 
-    waitingForResponse = false;
+    endGoalReceived = true;
     return true;
 }
 
 /**
- * Requests a plan from the planning node.
+ * Requests a path plan from the planning node.
  */
 void Agent::getPlan() {
     GetPlan srv;
@@ -52,20 +65,19 @@ void Agent::getPlan() {
  *
  * @param argc number of command-line arguments
  * @param argv command-line arguments
+ * @return zero if initialization succeeded
  */
 int Agent::init(int argc, char **argv) {
-    ros::init(argc, argv, NODE_NAME);
-
-    if (argc != 5) {
-        ROS_INFO("Required: agent <serial-id> <start-X> <start-Y> <start-theta>");
-        return 1;
-    }
-
+    /* Assign agent attributes */
+    // TODO: input value checks
     id = argv[1];
     pos.x = atoi(argv[2]);
     pos.y = atoi(argv[3]);
     pos.theta = atoi(argv[4]);
+    endGoalReceived = false;
 
+    /* ROS initialization */
+    ros::init(argc, argv, NODE_NAME);
     nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
     agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
     updateGoalServer = nodeHandle->advertiseService(id + "/" + UPDATE_GOAL_SERVICE, &Agent::updateGoalCallback, this);
@@ -76,6 +88,8 @@ int Agent::init(int argc, char **argv) {
 
 /**
  * Executes the agent.
+ *
+ * @return zero if execution completed successfully
  */
 int Agent::execute() {
     while (0 == agentFeedbackPublisher.getNumSubscribers()) {
@@ -83,10 +97,12 @@ int Agent::execute() {
         ros::Duration(0.1).sleep();
     }
 
+    endGoalReceived = false;
     publishPos();
-    waitingForResponse = true;
-    ros::Rate r(10); // 10 Hz
-    while (waitingForResponse) {
+
+    /* Check for an end point on the UPDATE_GOAL_SERVICE at a rate of 10 Hz */
+    ros::Rate r(10);
+    while (!endGoalReceived) {
         if (!ros::ok()) {
             return 1;
         }
@@ -103,9 +119,16 @@ int Agent::execute() {
 }
 
 int main(int argc, char **argv) {
-    Agent agent;
-    agent.init(argc, argv);
-    agent.execute();
+    if (argc < 5) {
+        std::cout << "Required: agent <serial-id> <start-X> <start-Y> <start-theta> " << argc << std::endl;
+        return 1;
+    }
 
-    return 0;
+    Agent agent;
+    int init_result = agent.init(argc, argv);
+    if (init_result) {
+        return init_result;
+    }
+
+    return agent.execute();
 }

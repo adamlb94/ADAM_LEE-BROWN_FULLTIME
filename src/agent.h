@@ -1,51 +1,50 @@
-#include "common.h"
-#include <sstream>
+#ifndef AGENT_H
+#define AGENT_H
 
-#define NODE_NAME "agent"
+#include "common.h"
+#include "multi_agent_planning/Position.h"
+#include "multi_agent_planning/UpdateGoal.h"
+#include "ros/ros.h"
 
 /**
- * Agent node which requests paths from the planner.
+ * Agent node that requests paths from the planner.
  */
 class Agent {
 private:
+    /* Serial ID */
     std::string id;
+
+    /* Current position */
     multi_agent_planning::Position pos;
+
+    /* Goal position */
     multi_agent_planning::Position goalPos;
+
+    /* Planned path including the current and goal position */
     std::vector<multi_agent_planning::Position> path;
 
+    /* ROS node handle */
     std::unique_ptr<ros::NodeHandle> nodeHandle;
+
+    /* Publisher for AGENT_FEEDBACK_TOPIC */
     ros::Publisher agentFeedbackPublisher;
+
+    /* Server for UPDATE_GOAL_SERVICE */
     ros::ServiceServer updateGoalServer;
+
+    /* Client for GET_PLAN_SERVICE */
     ros::ServiceClient getPlanClient;
 
-    bool waitingForResponse = false; // TODO: find alternative
+    /* Indicates that an end goal has been received from UPDATE_GOAL_SERVICE */
+    bool endGoalReceived;
 
-    /**
-     * Publishes the agent's current position.
-     */
     int publishPos();
-
-    /**
-     * Callback for the get_plan service.
-     */
     bool updateGoalCallback(multi_agent_planning::UpdateGoal::Request &req, multi_agent_planning::UpdateGoal::Response &res);
-
-    /**
-     * Requests a plan from the planning node.
-     */
     void getPlan();
 
 public:
-    /**
-     * Initializes ROS components and sets the agent start position using the given command-line arguments.
-     *
-     * @param argc number of command-line arguments
-     * @param argv command-line arguments
-     */
     int init(int argc, char **argv);
-
-    /**
-     * Executes the agent.
-     */
     int execute();
 };
+
+#endif
