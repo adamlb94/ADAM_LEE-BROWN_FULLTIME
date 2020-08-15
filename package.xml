@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>multi_agent_planning</name>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <description>Multi-Agent Planning</description>
 
   <maintainer email="adamleebrown94@gmail.com">adam</maintainer>
