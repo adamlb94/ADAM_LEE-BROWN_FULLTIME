@@ -22,7 +22,7 @@ const int y_directions[] = {0, 1, 0, -1};
 /**
  * Planning node's representation of an agent.
  */
-class Agent {
+class AgentPlan {
 private:
     std::string id;
     Position currentPos;
@@ -31,7 +31,7 @@ private:
     std::vector<Position> path;
 
 public:
-    Agent(std::string id, Position pos) {
+    AgentPlan(std::string id, Position pos) {
         this->id = id;
         setCurrentPos(pos);
     }
@@ -367,7 +367,7 @@ private:
     ros::Subscriber agentFeedbackSubscriber;
     ros::ServiceServer getPlanServer;
 
-    std::unordered_map<std::string, Agent> agents;
+    std::unordered_map<std::string, AgentPlan> agents;
 
     Roadmap roadmap;
     PathCache pathCache;
@@ -382,7 +382,7 @@ private:
         auto it = agents.find(id);
         if (it == agents.end()) {
             /* First time hearing from this agent. */
-            Agent agent = Agent(id, pos);
+            AgentPlan agent = AgentPlan(id, pos);
             agents.insert({id, agent});
             ROS_INFO("(agentFeedbackCallback) Created new agent: %s", agent.description().c_str());
         } else {
