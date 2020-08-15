@@ -1,13 +1,11 @@
-#include "ros/ros.h"
 #include "multi_agent_planning/AgentPos.h"
 #include "multi_agent_planning/GetPlan.h"
 #include "multi_agent_planning/Position.h"
 #include "multi_agent_planning/UpdateGoal.h"
-
 #include "src/planner.h"
 #include "src/agent.h"
+#include "ros/ros.h"
 
-#include <ros/console.h>
 #include <gtest/gtest.h>
 
 #define AGENT_FEEDBACK_TOPIC "agent_feedback"
@@ -23,6 +21,12 @@ ros::Publisher agentFeedbackPublisher;
 ros::ServiceServer updateGoalServer;
 ros::ServiceClient getPlanClient;
 
+/**
+ * Publishes the start position for a mocked agent with the given ID.
+ *
+ * @param agentId the ID of the mocked agent
+ * @param endPos the start position of the mocked agent
+ */
 void publishPos(std::string agentId, Position pos) {
     AgentPos agentPos;
     agentPos.id = agentId;
@@ -32,6 +36,13 @@ void publishPos(std::string agentId, Position pos) {
     ros::spinOnce();
 }
 
+/**
+ * Retrieves a planned path from the planner node for a mocked agent with the given ID and end position (the start position having been provided prior).
+ *
+ * @param agentId the ID of the mocked agent
+ * @param endPos the end position of the mocked agent
+ * @return the path returned by the planner
+ */
 std::vector<Position> getPlan(std::string agentId, Position endPos) {
     GetPlan srv;
     srv.request.id = agentId;
@@ -46,14 +57,37 @@ std::vector<Position> getPlan(std::string agentId, Position endPos) {
     return path;
 }
 
-bool positionAt(Position p, int x, int y, int theta) {
+/**
+ * Returns true if the given Position has the given coordinates.
+ *
+ * @param p the Position
+ * @param x the expected x-coordinate
+ * @param y the expected y-coordinate
+ * @param theta expected the theta value
+ * @return true if the position matches the given coordinates
+ */
+bool positionIs(Position p, int x, int y, int theta) {
     return p.x == x && p.y == y && p.theta == theta;
 }
 
+/**
+ * Returns true if the given positions are equal.
+ *
+ * @param path1 the first position
+ * @param path2 the second position
+ * @return true if the positions match
+ */
 bool positionsMatch(Position p1, Position p2) {
     return p1.x == p2.x && p1.y == p2.y && p1.theta == p2.theta;
 }
 
+/**
+ * Returns true if the given paths consist of the same Positions.
+ *
+ * @param path1 the first path
+ * @param path2 the second path
+ * @return true if the paths match
+ */
 bool pathsMatch(std::vector<Position> path1, std::vector<Position> path2) {
     if (path1.size() != path2.size()) {
         return false;
@@ -66,6 +100,15 @@ bool pathsMatch(std::vector<Position> path1, std::vector<Position> path2) {
     }
     return true;
 }
+
+/**
+ * Creates a Position from the given coordinates.
+ *
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @param theta the theta value
+ * @return the Position
+ */
 Position position(int x, int y, int theta) {
     Position p;
     p.x = x;
@@ -74,6 +117,14 @@ Position position(int x, int y, int theta) {
     return p;
 }
 
+/**
+ * Creates a mock agent with the given start position, end position, and expected shortest path, and queries the planner node.
+ *
+ * @param startPos the agent's start position
+ * @param endPos the agent's end position
+ * @param expectedPath the path that is expected to be computed by the planner
+ * @return true if the path returns by the planner matches the expected path
+ */
 bool testPath(std::string agentId, Position startPos, Position endPos, std::vector<Position> expectedPath) {
     nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
     agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
@@ -92,7 +143,10 @@ bool testPath(std::string agentId, Position startPos, Position endPos, std::vect
     return pathsMatch(path, expectedPath);
 }
 
-TEST(Test1, oneAgentLongestPath) {
+/**
+ * Required test, using mocked agents.
+ */
+TEST(Test, twoAgentsWithIntersectingPaths) {
     std::string agentId1 = "agent_1";
     Position startPos1 = position(2, 0, 0);
     Position endPos1 = position(2, 5, 0);
