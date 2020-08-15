@@ -110,25 +110,12 @@ public:
         addMarker(gridPointMarkers, i, "grid", x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
     }
 
-    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string agentId, int x, int y) {
-        addMarker(gridPointMarkers, i, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 0.0);
+    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
+        addMarker(gridPointMarkers, 0, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 0.0);
     }
 
-    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string agentId, int x, int y) {
-        addMarker(gridPointMarkers, i, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
-    }
-
-    void addPathMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string agentId, int x, int y) {
-        std::hash<std::string> hasher;
-        int hashed = std::abs((int) hasher(agentId));
-        int r = hashed % 10;
-        hashed /= 10;
-        int g = hashed % 10;
-        hashed /= 10;
-        int b = hashed % 10;
-
-        std::cout << "hashed = " << hashed << std::endl;
-        addMarker(gridPointMarkers, i, agentId, x, y, 0.90, 0.90, r, g, b);
+    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y) {
+        addMarker(gridPointMarkers, 1, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
     }
 
     void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
@@ -199,7 +186,7 @@ public:
 
     void displayPath(std::string id, std::vector<Position> path, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
         visualization_msgs::MarkerArray pathPointMarkers;
-        pathPointMarkers.markers.resize(path.size());
+        pathPointMarkers.markers.resize(2);
 
         visualization_msgs::Marker pathLineList;
 
@@ -217,10 +204,21 @@ public:
         pathLineList.type = visualization_msgs::Marker::LINE_LIST;
         pathLineList.scale.x = 0.2;
 
-        pathLineList.color.r = 1.0;
+        /* Generate line color from agent ID */
+        std::hash<std::string> hasher;
+        int hashed = std::abs((int) hasher(agentId));
+        double r = 1 - (1 / (hashed % 10));
+        hashed /= 10;
+        double g = 1 / (hashed % 10);
+        hashed /= 10;
+        double b = 1 / (hashed % 10);
+
+        pathLineList.color.r = r;
+        pathLineList.color.g = g;
+        pathLineList.color.b = b;
         pathLineList.color.a = 1.0;
 
-        /* Points and lines */
+        /* Add start/end markers and points for the path line */
         visualization_msgs::MarkerArray gridPointMarkers;
         gridPointMarkers.markers.resize(WIDTH * HEIGHT);
 
@@ -233,18 +231,17 @@ public:
             p.z = 0.0;
 
             if (i == 0) {
-                addAgentMarker(&pathPointMarkers, i, agentId, pathPos.x, pathPos.y);
+                addAgentMarker(&pathPointMarkers, agentId, pathPos.x, pathPos.y);
             } else if (i == path.size() - 1) {
-                addGoalMarker(&pathPointMarkers, i, agentId, pathPos.x, pathPos.y);
+                addGoalMarker(&pathPointMarkers, agentId, pathPos.x, pathPos.y);
             } else {
-                // addPathMarker(&pathPointMarkers, i, agentId, pathPos.x, pathPos.y);
                 /* Add two points: the end of the prev line and the start of the next line */
                 pathLineList.points.push_back(p);
             }
             pathLineList.points.push_back(p);
         }
 
-        // Publish the marker
+        /* Publish the markers and path line */
         while (pathMarkerArrayPublisher.getNumSubscribers() < 1 || pathLinePublisher.getNumSubscribers() < 1) {
             if (!ros::ok()) {
                 return;
