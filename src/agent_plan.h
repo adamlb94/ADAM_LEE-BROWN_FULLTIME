@@ -24,7 +24,6 @@ public:
     AgentPlan(std::string id, multi_agent_planning::Position pos);
     multi_agent_planning::Position getCurrentPos();
     multi_agent_planning::Position getGoalPos();
-    std::string getId();
     std::vector<multi_agent_planning::Position> getPath();
 
     void setCurrentPos(multi_agent_planning::Position pos);

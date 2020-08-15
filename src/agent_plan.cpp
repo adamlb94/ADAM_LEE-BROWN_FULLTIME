@@ -32,15 +32,6 @@ Position AgentPlan::getGoalPos() {
 }
 
 /**
- * Return the agent's ID.
- *
- * @return the agent's ID
- */
-std::string AgentPlan::getId() {
-    return id;
-}
-
-/**
  * Return the agent's planned path.
  *
  * @return the agent's path
