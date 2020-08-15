@@ -303,6 +303,11 @@ public:
         return path;
     }
 
+    /**
+     * Add the given path to the path cache.
+     *
+     * @param path the path to add
+     */
     void put(std::vector<Position> path) {
         int pathSize = path.size();
         if (pathSize < 2) {
