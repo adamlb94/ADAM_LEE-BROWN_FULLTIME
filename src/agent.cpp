@@ -42,7 +42,7 @@ private:
         goalPos.x = req.x;
         goalPos.y = req.y;
         goalPos.theta = req.theta;
-        ROS_INFO("(updateGoalCallback) Updated goalPos: %f, %f, %f", goalPos.x, goalPos.y, goalPos.theta);
+        ROS_INFO("(updateGoalCallback) Updated goalPos: %d, %d, %d", goalPos.x, goalPos.y, goalPos.theta);
 
         res.result = true;
 
@@ -63,7 +63,7 @@ private:
 
             ROS_INFO("(getPlan): Plan:");
             for (Position pos : path) {
-                ROS_INFO("%f, %f, %f", pos.x, pos.y, pos.theta);
+                ROS_INFO("%d, %d, %d", pos.x, pos.y, pos.theta);
             }
         } else {
             ROS_ERROR("Failed to call service %s", GET_PLAN_SERVICE.c_str());
