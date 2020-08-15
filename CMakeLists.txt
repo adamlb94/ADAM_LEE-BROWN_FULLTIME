@@ -41,13 +41,16 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 add_library(path_cache src/path_cache.cpp)
 target_link_libraries(path_cache ${catkin_LIBRARIES})
 
+add_library(roadmap src/roadmap.cpp)
+target_link_libraries(roadmap ${catkin_LIBRARIES})
+
 add_executable(agent src/agent.cpp)
 target_link_libraries(agent ${catkin_LIBRARIES})
 add_dependencies(agent multi_agent_planning_generate_messages_cpp)
 
 add_executable(planner src/planner.cpp)
-target_link_libraries(planner ${catkin_LIBRARIES}  path_cache)
-add_dependencies(planner multi_agent_planning_generate_messages_cpp path_cache)
+target_link_libraries(planner ${catkin_LIBRARIES} path_cache roadmap)
+add_dependencies(planner multi_agent_planning_generate_messages_cpp path_cache roadmap)
 
 add_executable(test_multi_agent_planning tests/test.test tests/tests.cpp)
 ## add_rostest_gtest(test_multi_agent_planning tests/test.test tests/tests.cpp)
