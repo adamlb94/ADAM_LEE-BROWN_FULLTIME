@@ -92,7 +92,7 @@ public:
 
         nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
         agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
-        updateGoalServer = nodeHandle->advertiseService(UPDATE_GOAL_SERVICE, &Agent::updateGoalCallback, this);
+        updateGoalServer = nodeHandle->advertiseService(id + "/" + UPDATE_GOAL_SERVICE, &Agent::updateGoalCallback, this);
         getPlanClient = nodeHandle->serviceClient<GetPlan>(GET_PLAN_SERVICE);
 
         return 0;
