@@ -4,6 +4,9 @@
 #include "multi_agent_planning/Position.h"
 #include "multi_agent_planning/UpdateGoal.h"
 
+#include "src/planner.h"
+#include "src/agent.h"
+
 #include <ros/console.h>
 #include <gtest/gtest.h>
 
@@ -71,7 +74,7 @@ Position position(int x, int y, int theta) {
     return p;
 }
 
-void testPath(std::string agentId, Position startPos, Position endPos, std::vector<Position> expectedPath) {
+bool testPath(std::string agentId, Position startPos, Position endPos, std::vector<Position> expectedPath) {
     nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
     agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
     getPlanClient = nodeHandle->serviceClient<GetPlan>(GET_PLAN_SERVICE);
@@ -86,54 +89,41 @@ void testPath(std::string agentId, Position startPos, Position endPos, std::vect
     ros::Duration(0.5).sleep();
     std::vector<Position> path = getPlan(agentId, endPos);
 
-    EXPECT_TRUE(pathsMatch(path, expectedPath));
+    return pathsMatch(path, expectedPath);
 }
 
-// TEST(Test1, oneAgentShortPath) {
-//     std::string agentId = "agent_1";
-//     Position startPos = position(2, 0, 0);
-//     Position endPos = position(2, 5, 0);
-
-//     std::vector<Position> expectedPath;
-//     expectedPath.push_back(position(2, 0, 0));
-//     expectedPath.push_back(position(2, 1, 0));
-//     expectedPath.push_back(position(2, 2, 0));
-//     expectedPath.push_back(position(2, 3, 0));
-//     expectedPath.push_back(position(2, 4, 0));
-//     expectedPath.push_back(position(2, 5, 0));
-
-//     testPath(agentId, startPos, endPos, expectedPath);
-// }
-
 TEST(Test1, oneAgentLongestPath) {
-    std::string agentId = "agent_1";
-    Position startPos = position(0, 0, 0);
-    Position endPos = position(10, 10, 0);
+    std::string agentId1 = "agent_1";
+    Position startPos1 = position(2, 0, 0);
+    Position endPos1 = position(2, 5, 0);
 
-    std::vector<Position> expectedPath;
-    expectedPath.push_back(position(0, 0, 0));
-    expectedPath.push_back(position(1, 0, 0));
-    expectedPath.push_back(position(2, 0, 0));
-    expectedPath.push_back(position(3, 0, 0));
-    expectedPath.push_back(position(4, 0, 0));
-    expectedPath.push_back(position(5, 0, 0));
-    expectedPath.push_back(position(6, 0, 0));
-    expectedPath.push_back(position(7, 0, 0));
-    expectedPath.push_back(position(8, 0, 0));
-    expectedPath.push_back(position(9, 0, 0));
-    expectedPath.push_back(position(10, 0, 0));
-    expectedPath.push_back(position(10, 1, 0));
-    expectedPath.push_back(position(10, 2, 0));
-    expectedPath.push_back(position(10, 3, 0));
-    expectedPath.push_back(position(10, 4, 0));
-    expectedPath.push_back(position(10, 5, 0));
-    expectedPath.push_back(position(10, 6, 0));
-    expectedPath.push_back(position(10, 7, 0));
-    expectedPath.push_back(position(10, 8, 0));
-    expectedPath.push_back(position(10, 9, 0));
-    expectedPath.push_back(position(10, 10, 0));
+    std::vector<Position> expectedPath1;
+    expectedPath1.push_back(position(2, 0, 0));
+    expectedPath1.push_back(position(2, 1, 0));
+    expectedPath1.push_back(position(2, 2, 0));
+    expectedPath1.push_back(position(2, 3, 0));
+    expectedPath1.push_back(position(2, 4, 0));
+    expectedPath1.push_back(position(2, 5, 0));
 
-    testPath(agentId, startPos, endPos, expectedPath);
+    std::string agentId2 = "agent_2";
+    Position startPos2 = position(0, 3, 0);
+    Position endPos2 = position(6, 3, 0);
+
+    std::vector<Position> expectedPath2;
+    expectedPath2.push_back(position(0, 3, 0));
+    expectedPath2.push_back(position(1, 3, 0));
+    expectedPath2.push_back(position(1, 2, 0));
+    expectedPath2.push_back(position(1, 1, 0));
+    expectedPath2.push_back(position(2, 1, 0));
+    expectedPath2.push_back(position(3, 1, 0));
+    expectedPath2.push_back(position(4, 1, 0));
+    expectedPath2.push_back(position(5, 1, 0));
+    expectedPath2.push_back(position(6, 1, 0));
+    expectedPath2.push_back(position(6, 2, 0));
+    expectedPath2.push_back(position(6, 3, 0));
+
+    EXPECT_TRUE(testPath(agentId1, startPos1, endPos1, expectedPath1) &&
+                testPath(agentId2, startPos2, endPos2, expectedPath2));
 }
 
 
