@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
     visualization_msgs
 )
 
+find_package(rostest REQUIRED)
+
 add_message_files(
     FILES
     AgentPos.msg
@@ -43,3 +45,7 @@ add_dependencies(agent multi_agent_planning_generate_messages_cpp)
 add_executable(planner src/planner.cpp)
 target_link_libraries(planner ${catkin_LIBRARIES})
 add_dependencies(planner multi_agent_planning_generate_messages_cpp)
+
+add_executable(test_multi_agent_planning tests/test.test tests/tests.cpp)
+## add_rostest_gtest(test_multi_agent_planning tests/test.test tests/tests.cpp)
+target_link_libraries(test_multi_agent_planning ${catkin_LIBRARIES} ${GTEST_LIBRARIES})

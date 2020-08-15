@@ -1,0 +1,3 @@
+<launch>
+	<test test-name="test_multi_agent_planning" pkg="multi_agent_planning" type="test_multi_agent_planning"/>
+</launch>
