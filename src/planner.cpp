@@ -8,6 +8,9 @@
 #define WIDTH 11
 #define HEIGHT 11
 
+/* Minimum clearance between two agents (in seconds) */
+#define MIN_CLEARANCE 11
+
 using namespace multi_agent_planning;
 
 const std::string NODE_NAME = "planner";
@@ -74,18 +77,23 @@ public:
  */
 class Roadmap {
 private:
+    ros::Publisher markerArrayPublisher;
 public:
-    bool roadmap[HEIGHT][WIDTH]; // TODO: make private
+    int roadmap[HEIGHT][WIDTH]; // TODO: make private
 
     Roadmap() {
         for (int x = 0; x < HEIGHT; x++)  {
             for (int y = 0; y < WIDTH; y++) {
-                roadmap[x][y] = false;
+                roadmap[x][y] = -1;
             }
         }
     }
 
-    void set(int x, int y, bool state) {
+    void init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
+        markerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("grid_marker_array", WIDTH * HEIGHT);
+    }
+
+    void set(int x, int y, int state) {
         if (x >= 0 && x < HEIGHT && y >= 0 && y < WIDTH) {
             roadmap[x][y] = state;
         }
@@ -110,7 +118,7 @@ public:
     void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
         int i = (x * WIDTH) + y;
 
-        gridPointMarkers->markers[i].header.frame_id = "roadmap";
+        gridPointMarkers->markers[i].header.frame_id = "/roadmap";
         gridPointMarkers->markers[i].header.stamp = ros::Time::now();
         gridPointMarkers->markers[i].ns = ns;
         gridPointMarkers->markers[i].action = visualization_msgs::Marker::ADD;
@@ -118,6 +126,11 @@ public:
         gridPointMarkers->markers[i].lifetime = ros::Duration();
 
         gridPointMarkers->markers[i].id = i;
+
+        gridPointMarkers->markers[i].pose.orientation.x = 0.0;
+        gridPointMarkers->markers[i].pose.orientation.y = 0.0;
+        gridPointMarkers->markers[i].pose.orientation.z = 0.0;
+        gridPointMarkers->markers[i].pose.orientation.w = 1.0;
 
         gridPointMarkers->markers[i].pose.position.x = x;
         gridPointMarkers->markers[i].pose.position.y = y;
@@ -133,8 +146,7 @@ public:
         gridPointMarkers->markers[i].color.b = blue;
     }
 
-    void displayRoadmap(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
-        ros::Publisher markerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", WIDTH * HEIGHT);
+    void displayRoadmap() {
 
         visualization_msgs::MarkerArray gridPointMarkers;
         gridPointMarkers.markers.resize(WIDTH * HEIGHT);
@@ -172,8 +184,7 @@ public:
     }
 
     void displayPath(std::string id, std::vector<Position> path, std::unique_ptr<ros::NodeHandle> &nodeHandle) {
-        ros::Publisher markerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", WIDTH * HEIGHT);
-        ros::Publisher markerPublisher = nodeHandle->advertise<visualization_msgs::Marker>("visualization_marker", WIDTH * HEIGHT);
+        ros::Publisher markerPublisher = nodeHandle->advertise<visualization_msgs::Marker>("path_marker", WIDTH * HEIGHT);
 
         visualization_msgs::Marker pathLineList;
 
@@ -184,7 +195,9 @@ public:
 
         std::string agentId = toAlnum(id);
         pathLineList.ns = "path" + agentId;
+
         pathLineList.pose.orientation.w = 1.0;
+
         pathLineList.id = 0;
         pathLineList.type = visualization_msgs::Marker::LINE_LIST;
         pathLineList.scale.x = 0.90;
@@ -206,13 +219,10 @@ public:
 
             if (i == 0) {
                 addAgentMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
-                std::cout << "AGENT" << std::endl;
             } else if (i == path.size() - 1) {
                 addGoalMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
-                std::cout << "GOAL" << std::endl;
             } else {
-                addPathMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
-                std::cout << "PATH" << std::endl;
+                // addPathMarker(&gridPointMarkers, agentId, pathPos.x, pathPos.y);
                 /* Add two points: the end of the prev line and the start of the next line */
                 pathLineList.points.push_back(p);
             }
@@ -272,6 +282,20 @@ private:
         return p;
     }
 
+    int getCost(int costs[HEIGHT][WIDTH], int startX, int startY) {
+        int minCost = INT_MAX;
+        for (int dir = 0; dir < sizeof(x_directions); dir++) {
+            int x = startX + x_directions[dir];
+            int y = startY + y_directions[dir];
+            if (x < 0 || x >= HEIGHT || y < 0 || y >= WIDTH) {
+                /* Out of bounds of the roadmap */
+                continue;
+            }
+            minCost = std::min(minCost, costs[x][y]);
+        }
+        return minCost == INT_MAX ? minCost : minCost + 10;
+    }
+
     /**
      * Find the shortest path between the given positions using the planPath algorithm, keeping track of previous nodes in the path.
      *
@@ -283,20 +307,20 @@ private:
     bool planPath(Position currentPos, Position goalPos, Position prevPos[HEIGHT][WIDTH])
     {
         std::queue<Position> queue;
-        bool visited[HEIGHT][WIDTH];
+        int costs[HEIGHT][WIDTH];
 
         for (int x = 0; x < HEIGHT; x++) {
             for (int y = 0; y < WIDTH; y++) {
                 // roadmap.roadmap[x][y] = false; // TODO
-                visited[x][y] = false;
                 prevPos[x][y] = currentPos;
+                costs[x][y] = INT_MAX;
             }
         }
 
         /* Insert start (currentPos) into queue */
         int x = currentPos.x;
         int y = currentPos.y;
-        visited[x][y] = true;
+        costs[x][y] = 0;
         queue.push(position(x, y));
 
         /* BFS traversal */
@@ -313,10 +337,14 @@ private:
                     /* Out of bounds of the roadmap */
                     continue;
                 }
-                if (!visited[x][y] && !roadmap.roadmap[x][y]) {
-                    visited[x][y] = true;
-                    prevPos[x][y] = currPos;
+                if (costs[x][y] == INT_MAX) {
+                    int cost = getCost(costs, x, y);
+                    costs[x][y] = cost;
+                    if (roadmap.roadmap[x][y] != INT_MAX && std::abs(cost - roadmap.roadmap[x][y]) < MIN_CLEARANCE) { // TODO: Fix this
+                        continue;
+                    }
 
+                    prevPos[x][y] = currPos;
                     Position p = position(x, y);
                     if (p == goalPos) {
                         /* Reached the end */
@@ -382,9 +410,10 @@ private:
         constructPath(&path, currentPos, goalPos, prevPos);
 
         std::cout << "Shortest path: ";
-        for (Position p : path) {
+        for (int i = 0; i < path.size(); i++) {
+            Position p = path.at(i);
             std::cout << "(" << p.x << "," << p.y << "),";
-            roadmap.set(p.x, p.y, true); // TODO: path should be non-blocking
+            roadmap.set(p.x, p.y, i * 10);
         }
         std::cout << std::endl;
 
@@ -438,6 +467,8 @@ public:
         ros::init(argc, argv, NODE_NAME);
         nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
 
+        roadmap.init(nodeHandle);
+
         ROS_INFO("Ready to receive requests from agent.");
         agentFeedbackSubscriber = nodeHandle->subscribe(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE, &Planner::agentFeedbackCallback, this);
         getPlanServer = nodeHandle->advertiseService(GET_PLAN_SERVICE, &Planner::getPlanCallback, this);
@@ -448,7 +479,7 @@ public:
      * Executes the planner.
      */
     int execute() {
-        roadmap.displayRoadmap(nodeHandle);
+        roadmap.displayRoadmap();
 
         ros::spin();
     }
