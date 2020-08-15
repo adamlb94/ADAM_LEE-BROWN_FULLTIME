@@ -12,12 +12,15 @@ class Agent {
 private:
     std::string id;
     Position pos;
+    Position goalPos;
     std::vector<Position> path;
 
     std::unique_ptr<ros::NodeHandle> nodeHandle;
     ros::Publisher agentFeedbackPublisher;
+    ros::ServiceServer updateGoalServer;
     ros::ServiceClient getPlanClient;
-    ros::ServiceClient updateGoalClient;
+
+    bool waitingForResponse = false; // TODO: find alternative
 
     /**
      * Publishes the agent's current position.
@@ -32,27 +35,28 @@ private:
     }
 
     /**
-     * Notifies the planning node of the agent's goal position.
+     * Callback for the get_plan service.
      */
-    int updateGoal() {
-        UpdateGoal srv;
-        srv.request.id = id;
-        srv.request.position = pos;
+    bool updateGoalCallback(UpdateGoal::Request  & req,
+                            UpdateGoal::Response & res) {
+        goalPos.x = req.x;
+        goalPos.y = req.y;
+        goalPos.theta = req.theta;
+        ROS_INFO("(updateGoalCallback) Updated goalPos: %f, %f, %f", goalPos.x, goalPos.y, goalPos.theta);
 
-        if (updateGoalClient.call(srv)) {
-            ROS_INFO("(updateGoal) result: %f", (bool)srv.response.result);
-        } else {
-            ROS_ERROR("Failed to call service %s", UPDATE_GOAL_SERVICE.c_str());
-            return 1;
-        }
+        res.result = true;
+
+        waitingForResponse = false;
+        return true;
     }
 
     /**
      * Requests a plan from the planning node.
      */
-    int getPlan() {
+    void getPlan() {
         GetPlan srv;
         srv.request.id = id;
+        srv.request.goalPos = goalPos;
 
         if (getPlanClient.call(srv)) {
             path = (std::vector<Position>)srv.response.path;
@@ -63,7 +67,6 @@ private:
             }
         } else {
             ROS_ERROR("Failed to call service %s", GET_PLAN_SERVICE.c_str());
-            return 1;
         }
     }
 
@@ -89,8 +92,8 @@ public:
 
         nodeHandle = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle);
         agentFeedbackPublisher = nodeHandle->advertise<AgentPos>(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE);
+        updateGoalServer = nodeHandle->advertiseService(UPDATE_GOAL_SERVICE, &Agent::updateGoalCallback, this);
         getPlanClient = nodeHandle->serviceClient<GetPlan>(GET_PLAN_SERVICE);
-        updateGoalClient = nodeHandle->serviceClient<UpdateGoal>(UPDATE_GOAL_SERVICE);
 
         return 0;
     }
@@ -99,16 +102,29 @@ public:
      * Executes the agent.
      */
     int execute() {
-        while (ros::ok()) {
-            publishPos();
-            ros::Duration(1).sleep();
-
-            updateGoal();
-            ros::Duration(1).sleep();
-
-            getPlan();
-            ros::Duration(1).sleep();
+        while (0 == agentFeedbackPublisher.getNumSubscribers()) {
+            ROS_INFO("Waiting for subscribers to connect");
+            ros::Duration(0.1).sleep();
         }
+
+        publishPos();
+        // ros::Duration(1).sleep();
+
+        waitingForResponse = true;
+        ros::Rate r(10); // 10 Hz
+        while (waitingForResponse) {
+            if (!ros::ok()) {
+                return 1;
+            }
+            ROS_INFO_ONCE("Waiting for %s", UPDATE_GOAL_SERVICE.c_str());
+            ros::spinOnce();
+            r.sleep();
+        }
+
+        ROS_INFO("Getting plan...");
+        getPlan();
+
+        ROS_INFO("Done");
         return 0;
     }
 };

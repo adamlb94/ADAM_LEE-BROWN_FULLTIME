@@ -1,4 +1,4 @@
 <launch>
-  <node pkg="multi_agent_planning" name="agent_1" type="agent" args="agent_1 10 20 0"/>
-  <node pkg="multi_agent_planning" name="agent_2" type="agent" args="agent_2 30 40 0"/>
+  <node pkg="multi_agent_planning" name="agent_1" type="agent" args="agent_1 2 0 0"/>
+  <node pkg="multi_agent_planning" name="agent_2" type="agent" args="agent_2 0 3 0"/>
 </launch>
