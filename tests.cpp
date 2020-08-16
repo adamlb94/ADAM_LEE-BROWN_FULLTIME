@@ -170,10 +170,10 @@ TEST(Test, twoAgentsWithIntersectingPaths) {
     expectedPath2.push_back(position(1, 1, 0));
     expectedPath2.push_back(position(2, 1, 0));
     expectedPath2.push_back(position(3, 1, 0));
-    expectedPath2.push_back(position(4, 1, 0));
-    expectedPath2.push_back(position(5, 1, 0));
-    expectedPath2.push_back(position(6, 1, 0));
-    expectedPath2.push_back(position(6, 2, 0));
+    expectedPath2.push_back(position(3, 2, 0));
+    expectedPath2.push_back(position(3, 3, 0));
+    expectedPath2.push_back(position(4, 3, 0));
+    expectedPath2.push_back(position(5, 3, 0));
     expectedPath2.push_back(position(6, 3, 0));
 
     EXPECT_TRUE(testPath(agentId1, startPos1, endPos1, expectedPath1) &&

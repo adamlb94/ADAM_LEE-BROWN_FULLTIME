@@ -33,6 +33,7 @@ public:
     void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue);
 
     std::string toAlnum(std::string id);
+    std::string toNum(std::string id);
 };
 
 #endif
