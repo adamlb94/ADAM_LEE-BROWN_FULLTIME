@@ -103,7 +103,10 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
 
             prevPos->at(x).at(y) = pos;
             if (bfsFromEndCosts->at(x).at(y) != INT_MAX) {
-                *intersectingPos = position(x, y);
+                if (intersectingPos->x == -1) {
+                    /* If other BFS direction has not already marked the intersecting point, set it */
+                    *intersectingPos = position(x, y);
+                }
                 return true;
             }
 
@@ -148,14 +151,14 @@ bool Planner::planPath(Position startPos, Position goalPos, std::vector<std::vec
         Position bfsFromStartCurrPos = bfsFromStartQueue.front();
         bfsFromStartQueue.pop();
 
-        if (exploreCoord(bfsFromStartCurrPos, goalPos, &bfsFromStartCosts, &bfsFromEndCosts, prevPos, &bfsFromStartQueue, intersectingPos)) {
-            return true;
-        }
-
         Position bfsFromEndCurrPos = bfsFromEndQueue.front();
         bfsFromEndQueue.pop();
 
-        if (exploreCoord(bfsFromEndCurrPos, startPos, &bfsFromEndCosts, &bfsFromStartCosts, nextPos, &bfsFromEndQueue, intersectingPos)) {
+        /* Check both BFS directions before returning early so they can both populate the next/prev positions of the intersecting point  */
+        bool found = exploreCoord(bfsFromStartCurrPos, goalPos, &bfsFromStartCosts, &bfsFromEndCosts, prevPos, &bfsFromStartQueue, intersectingPos);
+        found |= exploreCoord(bfsFromEndCurrPos, startPos, &bfsFromEndCosts, &bfsFromStartCosts, nextPos, &bfsFromEndQueue, intersectingPos);
+
+        if (found) {
             return true;
         }
     }
@@ -178,9 +181,11 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     /* Start from the intersecting position and work back to the start point */
     int x = intersectingPos.x;
     int y = intersectingPos.y;
+    ROS_INFO("XY = %d, %d", x, y);
 
     path->push_back(intersectingPos);
     while (prevPos->at(x).at(y).x != startPos.x || prevPos->at(x).at(y).y != startPos.y) {
+        ROS_INFO("XY = %d, %d", x, y);
         Position prev = prevPos->at(x).at(y);
         path->push_back(prev);
         x = prev.x;
@@ -189,18 +194,23 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     path->push_back(startPos);
 
     /* Get the first half of the path in the correct order */
+    ROS_INFO("Reversing");
     std::reverse(path->begin(), path->end());
+    ROS_INFO("Reversed");
 
     x = intersectingPos.x;
     y = intersectingPos.y;
+    ROS_INFO("XY = %d, %d", x, y);
 
     while (nextPos->at(x).at(y).x != goalPos.x || nextPos->at(x).at(y).y != goalPos.y) {
+        ROS_INFO("XY = %d, %d", x, y);
         Position next = nextPos->at(x).at(y);
         path->push_back(next);
         x = next.x;
         y = next.y;
     }
     path->push_back(goalPos);
+    ROS_INFO("PATH CONSTRUCTED");
 }
 
 /**
@@ -237,10 +247,10 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
     }
 
     /* Previous position of a potential path for every position in the roadmap */
-    std::vector<std::vector<Position>> prevPos(WIDTH, std::vector<Position>(HEIGHT, startPos));
-    std::vector<std::vector<Position>> nextPos(WIDTH, std::vector<Position>(HEIGHT, goalPos));
+    std::vector<std::vector<Position>> prevPos(WIDTH, std::vector<Position>(HEIGHT, position(-1, -1)));
+    std::vector<std::vector<Position>> nextPos(WIDTH, std::vector<Position>(HEIGHT, position(-1, -1)));
 
-    Position intersectingPos;
+    Position intersectingPos = position(-1, -1);
     if (planPath(startPos, goalPos, &prevPos, &nextPos, &intersectingPos) == false) {
         ROS_WARN("(getShortestPath) No path between points.");
 
@@ -277,7 +287,7 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
  * @param req the request
  * @param res the response
  */
-bool Planner::getPlanCallback(GetPlan::Request &req, GetPlan::Response &res) {
+bool Planner::getPlanCallback(GetPlan::Request & req, GetPlan::Response & res) {
     std::string id = (std::string)req.id;
     auto it = agents.find(id);
 

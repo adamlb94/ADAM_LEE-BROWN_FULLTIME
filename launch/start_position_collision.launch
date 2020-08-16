@@ -10,6 +10,6 @@
 
   <node pkg="rosservice" name="agent_1_update_goal" type="rosservice" args="call /agent_1/update_goal 2 5 0"/>
   <node pkg="rosservice" name="agent_2_update_goal" type="rosservice" args="call /agent_2/update_goal 6 3 0"/>
-  <node pkg="rosservice" name="agent_3_update_goal" type="rosservice" args="call /agent_3/update_goal 10 10 0"/>
-  <node pkg="rosservice" name="agent_4_update_goal" type="rosservice" args="call /agent_4/update_goal 10 9 0"/>
+  <node pkg="rosservice" name="agent_3_update_goal" type="rosservice" args="call /agent_3/update_goal 10 5 0"/>
+  <node pkg="rosservice" name="agent_4_update_goal" type="rosservice" args="call /agent_4/update_goal 10 6 0"/>
 </launch>
