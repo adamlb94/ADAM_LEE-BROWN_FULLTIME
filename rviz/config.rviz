@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Grid1
         - /MarkerArray1
         - /Marker1
         - /MarkerArray2
@@ -50,11 +51,11 @@ Visualization Manager:
       Name: Grid
       Normal Cell Count: 0
       Offset:
-        X: 5
-        Y: 5
+        X: 4.5
+        Y: 4.5
         Z: 0
       Plane: XY
-      Plane Cell Count: 10
+      Plane Cell Count: 9
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/MarkerArray
@@ -78,8 +79,8 @@ Visualization Manager:
       Marker Topic: path_marker_array
       Name: MarkerArray
       Namespaces:
-        agent1: true
-        agent2: true
+        agent_1: true
+        agent_2: true
       Queue Size: 200
       Value: true
     - Class: rviz/Marker
@@ -87,8 +88,8 @@ Visualization Manager:
       Marker Topic: path_marker
       Name: Marker
       Namespaces:
-        agent1: true
-        agent2: true
+        agent_1: true
+        agent_2: true
       Queue Size: 200
       Value: true
     - Class: rviz/Marker
@@ -96,8 +97,8 @@ Visualization Manager:
       Marker Topic: path_line_marker
       Name: Marker
       Namespaces:
-        pathagent1: true
-        pathagent2: true
+        pathagent_1: true
+        pathagent_2: true
       Queue Size: 1000
       Value: true
   Enabled: true
@@ -128,15 +129,15 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 13.973370552062988
+      Distance: 12.296566009521484
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 5
-        Y: 5
+        X: 4.5
+        Y: 4.5
         Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
@@ -165,4 +166,4 @@ Window Geometry:
     collapsed: false
   Width: 1366
   X: 0
-  Y: 321
+  Y: 27

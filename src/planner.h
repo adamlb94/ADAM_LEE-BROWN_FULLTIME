@@ -13,12 +13,6 @@
 #include <queue>
 #include <unordered_map>
 
-/* Roadmap width */
-#define WIDTH 11
-
-/* Roadmap height */
-#define HEIGHT 11
-
 /**
  * Planning node that plans paths for agents.
  */
