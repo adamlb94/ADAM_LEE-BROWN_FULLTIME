@@ -1,9 +1,25 @@
 #include "roadmap.h"
 #include "ros/ros.h"
-#include <functional> // for std::hash
 #include <vector>
 
 using namespace multi_agent_planning;
+
+/**
+ * Creates a std_msgs::ColorRGBA from the given RGB values.
+ *
+ * @param r red
+ * @param g green
+ * @param b blue
+ * @return the std_msgs::ColorRGBA
+ */
+std_msgs::ColorRGBA Roadmap::rgbColor(double r, double g, double b) {
+    std_msgs::ColorRGBA color;
+    color.r = r;
+    color.g = g;
+    color.b = b;
+    color.a = 1.0;
+    return color;
+}
 
 /**
  * Constructor.
@@ -17,6 +33,19 @@ void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
             roadmap[x][y] = -1;
         }
     }
+
+    /* Set colors to be used by rviz for displaying agent paths */
+    agentColorCount = 0;
+    colors.push_back(rgbColor(1.0, 0.0, 0.0)); // Red
+    colors.push_back(rgbColor(0.0, 1.0, 0.0)); // green
+    colors.push_back(rgbColor(0.0, 0.0, 1.0)); // blue
+    colors.push_back(rgbColor(1.0, 1.0, 0.0)); // yellow
+    colors.push_back(rgbColor(0.0, 1.0, 1.0)); // cyan
+    colors.push_back(rgbColor(0.0, 0.5, 0.0)); // dark green
+    colors.push_back(rgbColor(0.0, 0.0, 0.5)); // dark blue
+    colors.push_back(rgbColor(1.0, 0.0, 1.0)); // magenta
+    colors.push_back(rgbColor(0.5, 0.0, 0.0)); // maroon
+    colors.push_back(rgbColor(1.0, 1.0, 1.0)); // white
 
     /* Initialize publishers */
     gridMarkerArrayPublisher = nodeHandle->advertise<visualization_msgs::MarkerArray>("grid_marker_array", WIDTH * HEIGHT);
@@ -46,7 +75,7 @@ void Roadmap::set(int x, int y, int value) {
  */
 void Roadmap::addGridPointMarker(visualization_msgs::MarkerArray *pointMarkers, int x, int y) {
     int i = (x + (y * HEIGHT));
-    addMarker(pointMarkers, i, "grid", x, y, 0.2, 0.2, 0.0, 0.0, 0.0);
+    addMarker(pointMarkers, i, "grid", x, y, 0.2, 0.2, rgbColor(0.0, 0.0, 0.0));
 }
 
 /**
@@ -57,7 +86,7 @@ void Roadmap::addGridPointMarker(visualization_msgs::MarkerArray *pointMarkers, 
  * @param y the y-coordinate
  */
 void Roadmap::addAgentMarker(visualization_msgs::MarkerArray *pointMarkers, std::string agentId, int x, int y) {
-    addMarker(pointMarkers, 0, agentId, x, y, 0.90, 0.90, 0.0, 0.0, 0.0);
+    addMarker(pointMarkers, 0, agentId, x, y, 0.90, 0.90, rgbColor(0.0, 0.0, 0.0));
 }
 
 /**
@@ -66,9 +95,10 @@ void Roadmap::addAgentMarker(visualization_msgs::MarkerArray *pointMarkers, std:
  * @param pointMarkers the marker array
  * @param x the x-coordinate
  * @param y the y-coordinate
+ * @param color the marker color
  */
-void Roadmap::addGoalMarker(visualization_msgs::MarkerArray *pointMarkers, std::string agentId, int x, int y) {
-    addMarker(pointMarkers, 1, agentId, x, y, 0.90, 0.90, 0.0, 1.0, 0.0);
+void Roadmap::addGoalMarker(visualization_msgs::MarkerArray *pointMarkers, std::string agentId, int x, int y, std_msgs::ColorRGBA color) {
+    addMarker(pointMarkers, 1, agentId, x, y, 0.90, 0.90, color);
 }
 
 /**
@@ -80,11 +110,9 @@ void Roadmap::addGoalMarker(visualization_msgs::MarkerArray *pointMarkers, std::
  * @param y the y-coordinate
  * @param xScale the marker x-scale
  * @param yScale the marker y-scale
- * @param red the marker red color value
- * @param blue the marker blue color value
- * @param green the marker green color value
+ * @param color the marker color
  */
-void Roadmap::addMarker(visualization_msgs::MarkerArray *pointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue) {
+void Roadmap::addMarker(visualization_msgs::MarkerArray *pointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, std_msgs::ColorRGBA color) {
     pointMarkers->markers[i].header.frame_id = "/roadmap";
     pointMarkers->markers[i].header.stamp = ros::Time::now();
     pointMarkers->markers[i].ns = ns;
@@ -105,12 +133,9 @@ void Roadmap::addMarker(visualization_msgs::MarkerArray *pointMarkers, int i, st
 
     pointMarkers->markers[i].scale.x = xScale;
     pointMarkers->markers[i].scale.y = yScale;
-    pointMarkers->markers[i].scale.z = xScale; // TODO
+    pointMarkers->markers[i].scale.z = xScale;
 
-    pointMarkers->markers[i].color.a = 1.0;
-    pointMarkers->markers[i].color.r = red;
-    pointMarkers->markers[i].color.g = green;
-    pointMarkers->markers[i].color.b = blue;
+    pointMarkers->markers[i].color = color;
 }
 
 /**
@@ -126,7 +151,7 @@ void Roadmap::displayRoadmap() {
         }
     }
 
-    // Publish the marker
+    /* Publish the marker */
     while (gridMarkerArrayPublisher.getNumSubscribers() < 1) {
         if (!ros::ok()) {
             return;
@@ -135,25 +160,6 @@ void Roadmap::displayRoadmap() {
         ros::Duration(0.5).sleep();
     }
     gridMarkerArrayPublisher.publish(gridPointMarkers);
-}
-
-/**
- * Returns the given string, stripped of any non-alphanumeric characters.
- * This creates an RVIZ namespace-appropriate namespace for the path of the agent with the given ID.
- *
- * @param s the string
- * @return a new string with any non-alphanumeric characters removed
- */
-std::string Roadmap::toAlnum(std::string s) {
-    std::string stripped = "";
-    /* Remove all non-alphabetial characters from ID */
-    for (int i = 0; i < s.length(); i++) {
-        char c = s.at(i);
-        if (isalnum(c)) {
-            stripped = stripped + c;
-        }
-    }
-    return stripped;
 }
 
 /**
@@ -176,7 +182,7 @@ void Roadmap::displayPath(std::string id, std::vector<Position> path, std::uniqu
     pathLineList.header.stamp = ros::Time::now();
     pathLineList.action = visualization_msgs::Marker::ADD;
 
-    std::string agentId = toAlnum(id);
+    std::string agentId = id;
     pathLineList.ns = "path" + agentId;
 
     pathLineList.pose.orientation.w = 1.0;
@@ -184,19 +190,9 @@ void Roadmap::displayPath(std::string id, std::vector<Position> path, std::uniqu
     pathLineList.type = visualization_msgs::Marker::LINE_LIST;
     pathLineList.scale.x = 0.2;
 
-    /* Generate line color from agent ID */
-    std::hash<std::string> hasher;
-    int hashed = std::abs((int) hasher(agentId));
-    double r = 1 - (1 / (hashed % 10));
-    hashed /= 10;
-    double g = 1 / (hashed % 10);
-    hashed /= 10;
-    double b = 1 / (hashed % 10);
-
-    pathLineList.color.r = r;
-    pathLineList.color.g = g;
-    pathLineList.color.b = b;
-    pathLineList.color.a = 1.0;
+    std_msgs::ColorRGBA color = colors.at(agentColorCount);
+    agentColorCount = (agentColorCount + 1) % colors.size();
+    pathLineList.color = color;
 
     /* Add start/end markers and points for the path line */
     visualization_msgs::MarkerArray gridPointMarkers;
@@ -212,7 +208,7 @@ void Roadmap::displayPath(std::string id, std::vector<Position> path, std::uniqu
         if (i == 0) {
             addAgentMarker(&pathPointMarkers, agentId, pathPos.x, pathPos.y);
         } else if (i == path.size() - 1) {
-            addGoalMarker(&pathPointMarkers, agentId, pathPos.x, pathPos.y);
+            addGoalMarker(&pathPointMarkers, agentId, pathPos.x, pathPos.y, color);
         } else {
             /* Add two points: the end of the prev line and the start of the next line */
             pathLineList.points.push_back(p);

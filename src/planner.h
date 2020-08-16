@@ -44,10 +44,13 @@ private:
 
     void agentFeedbackCallback(const multi_agent_planning::AgentPos::ConstPtr& msg);
     multi_agent_planning::Position position(int x, int y);
-    int getValue(int roadmap[WIDTH][HEIGHT], int startX, int startY);
-    bool planPath(multi_agent_planning::Position currentPos, multi_agent_planning::Position goalPos, multi_agent_planning::Position prevPos[WIDTH][HEIGHT]);
-    void constructPath(std::vector<multi_agent_planning::Position> *path, multi_agent_planning::Position currentPos, multi_agent_planning::Position goalPos, multi_agent_planning::Position prevPos[WIDTH][HEIGHT]);
-    std::vector<multi_agent_planning::Position> getShortestPath(multi_agent_planning::Position currentPos, multi_agent_planning::Position goalPos);
+    int getValue(std::vector<std::vector<int>> costs, int startX, int startY);
+
+    bool isOccupied(int x, int y, int arrivalTime);
+    bool exploreCoord(multi_agent_planning::Position pos, multi_agent_planning::Position endPos, std::vector<std::vector<int>> *costs1, std::vector<std::vector<int>> *costs2, std::vector<std::vector<multi_agent_planning::Position>> *prevPos, std::queue<multi_agent_planning::Position> *queue, multi_agent_planning::Position *intersectingPos);
+    bool planPath(multi_agent_planning::Position startPos, multi_agent_planning::Position goalPos, std::vector<std::vector<multi_agent_planning::Position>> *prevPos, std::vector<std::vector<multi_agent_planning::Position>> *nextPos, multi_agent_planning::Position *intersectingPos);
+    void constructPath(std::vector<multi_agent_planning::Position> *path, multi_agent_planning::Position startPos, multi_agent_planning::Position goalPos, multi_agent_planning::Position intersectingPos, std::vector<std::vector<multi_agent_planning::Position>> *prevPos, std::vector<std::vector<multi_agent_planning::Position>> *nextPos);
+    std::vector<multi_agent_planning::Position> getShortestPath(multi_agent_planning::Position startPos, multi_agent_planning::Position goalPos);
     bool getPlanCallback(multi_agent_planning::GetPlan::Request &req, multi_agent_planning::GetPlan::Response &res);
 
 public:

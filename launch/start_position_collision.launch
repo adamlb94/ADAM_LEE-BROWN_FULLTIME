@@ -1,0 +1,15 @@
+<launch>
+  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find multi_agent_planning)/rviz/config.rviz" />
+
+  <node pkg="multi_agent_planning" name="planner" type="planner" output="screen"/>
+
+  <node pkg="multi_agent_planning" name="agent_1" type="agent" args="agent_1 2 0 0"/>
+  <node pkg="multi_agent_planning" name="agent_2" type="agent" args="agent_2 0 3 0"/>
+  <node pkg="multi_agent_planning" name="agent_3" type="agent" args="agent_3 10 2 0"/>
+  <node pkg="multi_agent_planning" name="agent_4" type="agent" args="agent_4 10 2 0"/>
+
+  <node pkg="rosservice" name="agent_1_update_goal" type="rosservice" args="call /agent_1/update_goal 2 5 0"/>
+  <node pkg="rosservice" name="agent_2_update_goal" type="rosservice" args="call /agent_2/update_goal 6 3 0"/>
+  <node pkg="rosservice" name="agent_3_update_goal" type="rosservice" args="call /agent_3/update_goal 10 5 0"/>
+  <node pkg="rosservice" name="agent_4_update_goal" type="rosservice" args="call /agent_4/update_goal 10 6 0"/>
+</launch>

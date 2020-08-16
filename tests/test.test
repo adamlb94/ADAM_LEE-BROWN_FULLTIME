@@ -1,5 +1,5 @@
 <launch>
     <node pkg="rviz" name="rviz" type="rviz" args="-d $(find multi_agent_planning)/rviz/config.rviz" />
-    <node pkg="multi_agent_planning" name="planner" type="planner"/>
+    <node pkg="multi_agent_planning" name="planner" type="planner" output="screen"/>
 	<test test-name="test_multi_agent_planning" pkg="multi_agent_planning" type="test_multi_agent_planning"/>
 </launch>

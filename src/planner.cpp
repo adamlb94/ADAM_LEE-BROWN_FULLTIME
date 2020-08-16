@@ -6,6 +6,9 @@
 /* Minimum clearance between two agents (in seconds) */
 #define MIN_CLEARANCE 10
 
+/* Cost of moving between roadmap coorinates (in seconds) */
+#define COST_BETWEEN_COORDS 10
+
 using namespace multi_agent_planning;
 
 const int x_directions[] = {1, 0, -1, 0};
@@ -48,82 +51,115 @@ Position Planner::position(int x, int y) {
 }
 
 /**
- * Return the roadmap value at the given x-y coordinates.
+ * Return the minimum cost of the grid cell at the given x-y coordinates based on its surrounding cells.
  *
- * @param roadmap the roadmap
+ * @param costs the roadmap
  * @param x the x-coordinate
  * @param y the y-coordinate
- * @return the roadmap value
+ * @return the cost
  */
-int Planner::getValue(int roadmap[WIDTH][HEIGHT], int startX, int startY) {
+int Planner::getValue(std::vector<std::vector<int>> costs, int startX, int startY) {
     int minCost = INT_MAX;
     for (int dir = 0; dir < sizeof(x_directions); dir++) {
         int x = startX + x_directions[dir];
         int y = startY + y_directions[dir];
         if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) {
-            /* Out of bounds of the roadmap */
+            /* Out of bounds of the grid */
             continue;
         }
-        minCost = std::min(minCost, roadmap[x][y]);
+        minCost = std::min(minCost, costs.at(x).at(y));
     }
-    return minCost == INT_MAX ? minCost : minCost + 10;
+    return minCost == INT_MAX ? minCost : minCost + COST_BETWEEN_COORDS;
 }
 
 /**
- * Find the shortest path between the given positions using the planPath algorithm, keeping track of previous nodes in the path.
+ * Bi-directional BFS helper function: Explore the grid positions surrounding the given pos to find an intersection with the BFS search of the opposite direction.
  *
- * @param currentPos the agent's current position
- * @param goalPos the agent's target position
- * @param prevPos 2D array of the same size as the roadmap, containing the previous position of a potential path for every position in the roadmap
- * @return true if there is a path between the current and goal positions, false otherwise
+ * @param pos the centre position to explore around
+ * @param endPos the goal position, return true if found
+ * @param bfsFromStartCosts costs of each coordinate when searching for the endPos from the startPos
+ * @param bfsFromEndCosts costs of each coordinate when searching for the startPos from the endPos
+ * @param prevPos links to adjacent coorinates in potential paths
+ * @param queue the BFS queue
+ * @param intersectingPos position to set when an intersection between the two BFS directional searches are found
+ * @return true if an intersection is found
  */
-bool Planner::planPath(Position currentPos, Position goalPos, Position prevPos[WIDTH][HEIGHT]) {
-    std::queue<Position> queue;
-    int costs[WIDTH][HEIGHT];
+bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vector<int>> *bfsFromStartCosts, std::vector<std::vector<int>> *bfsFromEndCosts, std::vector<std::vector<Position>> *prevPos, std::queue<Position> *queue, Position *intersectingPos) {
+    for (int dir = 0; dir < sizeof(x_directions); dir++) {
+        int x = pos.x + x_directions[dir];
+        int y = pos.y + y_directions[dir];
 
-    for (int x = 0; x < WIDTH; x++) {
-        for (int y = 0; y < HEIGHT; y++) {
-            // roadmap.roadmap[x][y] = false; // TODO
-            prevPos[x][y] = currentPos;
-            costs[x][y] = INT_MAX;
+        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) {
+            /* Out of bounds of the roadmap */
+            continue;
         }
-    }
+        if (bfsFromStartCosts->at(x).at(y) == INT_MAX) {
+            int cost = getValue(*bfsFromStartCosts, x, y);
+            bfsFromStartCosts->at(x).at(y) = cost;
 
-    /* Insert start (currentPos) into queue */
-    int x = currentPos.x;
-    int y = currentPos.y;
-    costs[x][y] = 0;
-    queue.push(position(x, y));
-
-    /* BFS traversal */
-    while (!queue.empty()) {
-        Position currPos = queue.front();
-        queue.pop();
-
-        /* Explore coordinates in above, below and to the sides of the current position */
-        for (int dir = 0; dir < sizeof(x_directions); dir++) {
-            x = currPos.x + x_directions[dir];
-            y = currPos.y + y_directions[dir];
-
-            if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) {
-                /* Out of bounds of the roadmap */
+            if (isOccupied(x, y, cost)) { // TODO: improve based on theta
                 continue;
             }
-            if (costs[x][y] == INT_MAX) {
-                int cost = getValue(costs, x, y);
-                costs[x][y] = cost;
-                if (roadmap.roadmap[x][y] != INT_MAX && std::abs(cost - roadmap.roadmap[x][y]) <= MIN_CLEARANCE) { // TODO: Fix this
-                    continue;
-                }
 
-                prevPos[x][y] = currPos;
-                Position p = position(x, y);
-                if (p == goalPos) {
-                    /* Reached the end */
-                    return true;
+            prevPos->at(x).at(y) = pos;
+            if (bfsFromEndCosts->at(x).at(y) != INT_MAX) {
+                if (intersectingPos->x == -1) {
+                    /* If other BFS direction has not already marked the intersecting point, set it */
+                    *intersectingPos = position(x, y);
                 }
-                queue.push(p);
+                return true;
             }
+
+            Position p = position(x, y);
+            if (p == endPos) {
+                /* Reached the end */
+                return true;
+            }
+            queue->push(p);
+        }
+    }
+    return false;
+}
+
+/**
+ * Find the shortest path between the given positions using a bi-directional BFS search algorithm.
+ *
+ * @param startPos the agent's start position
+ * @param goalPos the agent's goal position
+ * @param prevPos links to adjacent coorinates in potential paths beginning at the agent's start position
+ * @param nextPos links to adjacent coorinates in potential paths beginning at the agent's goal position
+ * @param intersectingPos position to set when an intersection between the two BFS directional searches are found
+ * @return true if a path exists
+ */
+bool Planner::planPath(Position startPos, Position goalPos, std::vector<std::vector<Position>> *prevPos, std::vector<std::vector<Position>> *nextPos, Position *intersectingPos) {
+    std::queue<Position> bfsFromStartQueue;
+    std::vector<std::vector<int>> bfsFromStartCosts(WIDTH, std::vector<int>(HEIGHT, INT_MAX));
+
+    std::queue<Position> bfsFromEndQueue;
+    std::vector<std::vector<int>> bfsFromEndCosts(WIDTH, std::vector<int>(HEIGHT, INT_MAX));
+
+    /* Insert startPos into bfsFromStartQueue */
+    bfsFromStartCosts.at(startPos.x).at(startPos.y) = 0;
+    bfsFromStartQueue.push(startPos);
+
+    /* Insert endPos into bfsFromEndQueue */
+    bfsFromEndCosts.at(goalPos.x).at(goalPos.y) = 0;
+    bfsFromEndQueue.push(goalPos);
+
+    /* BFS traversal */
+    while (!bfsFromStartQueue.empty() && !bfsFromEndQueue.empty()) {
+        Position bfsFromStartCurrPos = bfsFromStartQueue.front();
+        bfsFromStartQueue.pop();
+
+        Position bfsFromEndCurrPos = bfsFromEndQueue.front();
+        bfsFromEndQueue.pop();
+
+        /* Check both BFS directions before returning early so they can both populate the next/prev positions of the intersecting point  */
+        bool found = exploreCoord(bfsFromStartCurrPos, goalPos, &bfsFromStartCosts, &bfsFromEndCosts, prevPos, &bfsFromStartQueue, intersectingPos);
+        found |= exploreCoord(bfsFromEndCurrPos, startPos, &bfsFromEndCosts, &bfsFromStartCosts, nextPos, &bfsFromEndQueue, intersectingPos);
+
+        if (found) {
+            return true;
         }
     }
 
@@ -132,64 +168,104 @@ bool Planner::planPath(Position currentPos, Position goalPos, Position prevPos[W
 }
 
 /**
- * Constructs the shortest path between the two given positions, using the given 2D array of previous positions.
+ * Constructs the shortest path between the two given positions, meeting at the given intersection position, using the given 2D vectors of previous/next positions created during the bi-directional BFS.
  *
  * @param path the path to fill
- * @param currentPos the agent's current position
+ * @param startPos the agent's start position
  * @param goalPos the agent's target position
- * @param prevPos 2D array of the same size as the roadmap, containing the previous position of a potential path for every position in the roadmap
- * @return the shortest path
+ * @param intersectionPos the position at which the bi-drectional BFS
+ * @param prevPos links to adjacent coorinates in potential paths beginning at the agent's start position
+ * @param nextPos links to adjacent coorinates in potential paths beginning at the agent's goal position
  */
-void Planner::constructPath(std::vector<Position> *path, Position currentPos, Position goalPos, Position prevPos[WIDTH][HEIGHT]) {
-    /* Start from the goalPos and work back */
-    int x = goalPos.x;
-    int y = goalPos.y;
+void Planner::constructPath(std::vector<Position> *path, Position startPos, Position goalPos, Position intersectingPos, std::vector<std::vector<Position>> *prevPos, std::vector<std::vector<Position>> *nextPos) {
+    /* Start from the intersecting position and work back to the start point */
+    int x = intersectingPos.x;
+    int y = intersectingPos.y;
+    ROS_INFO("XY = %d, %d", x, y);
 
-    path->push_back(goalPos);
-    while (prevPos[x][y].x != currentPos.x || prevPos[x][y].y != currentPos.y) {
-        Position prev = prevPos[x][y];
+    path->push_back(intersectingPos);
+    while (prevPos->at(x).at(y).x != startPos.x || prevPos->at(x).at(y).y != startPos.y) {
+        ROS_INFO("XY = %d, %d", x, y);
+        Position prev = prevPos->at(x).at(y);
         path->push_back(prev);
         x = prev.x;
         y = prev.y;
     }
-    path->push_back(currentPos);
+    path->push_back(startPos);
 
-    /* Return the path in the correct order */
+    /* Get the first half of the path in the correct order */
+    ROS_INFO("Reversing");
     std::reverse(path->begin(), path->end());
+    ROS_INFO("Reversed");
+
+    x = intersectingPos.x;
+    y = intersectingPos.y;
+    ROS_INFO("XY = %d, %d", x, y);
+
+    while (nextPos->at(x).at(y).x != goalPos.x || nextPos->at(x).at(y).y != goalPos.y) {
+        ROS_INFO("XY = %d, %d", x, y);
+        Position next = nextPos->at(x).at(y);
+        path->push_back(next);
+        x = next.x;
+        y = next.y;
+    }
+    path->push_back(goalPos);
+    ROS_INFO("PATH CONSTRUCTED");
+}
+
+/**
+ * Returns true if the roadmap at the given x-y position will be occupied in arrivalTime seconds.
+ *
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @param arrivalTime seconds until the agent will arrive at the coordinate
+ * @return true if the roadmap at the given x-y position will be occupied
+ */
+bool Planner::isOccupied(int x, int y, int arrivalTime) {
+    return roadmap.roadmap[x][y] >= 0 && std::abs(arrivalTime - roadmap.roadmap[x][y]) <= MIN_CLEARANCE;
 }
 
 /**
  * Finds the shortest path between the given positions. The given positions are NOT included in the path.
  *
- * @param currentPos the agent's current position
+ * @param startPos the agent's start position
  * @param goalPos the agent's target position
  * @return the shortest path
  */
-std::vector<Position> Planner::getShortestPath(Position currentPos, Position goalPos) {
-    std::vector<Position> path = pathCache.get(currentPos, goalPos);
+std::vector<Position> Planner::getShortestPath(Position startPos, Position goalPos) {
+    std::vector<Position> path;
+    if (isOccupied(startPos.x, startPos.y, 0)) {
+        ROS_WARN("(getShortestPath) Robot starting at (%d, %d) will result in a collision!", startPos.x, startPos.y);
+        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y]);
+        return path;
+    }
+
+    path = pathCache.get(startPos, goalPos);
     if (!path.empty()) {
-        ROS_INFO("(getShortestPath) Path already exists!");
+        ROS_INFO("(getShortestPath) Path already exists, reusing it.");
         return path;
     }
 
     /* Previous position of a potential path for every position in the roadmap */
-    Position prevPos[WIDTH][HEIGHT];
+    std::vector<std::vector<Position>> prevPos(WIDTH, std::vector<Position>(HEIGHT, position(-1, -1)));
+    std::vector<std::vector<Position>> nextPos(WIDTH, std::vector<Position>(HEIGHT, position(-1, -1)));
 
-    if (planPath(currentPos, goalPos, prevPos) == false) {
+    Position intersectingPos = position(-1, -1);
+    if (planPath(startPos, goalPos, &prevPos, &nextPos, &intersectingPos) == false) {
         ROS_WARN("(getShortestPath) No path between points.");
 
-        path.push_back(currentPos);
+        path.push_back(startPos);
         return path;
     }
 
     /* Positions in the shortest path */
-    constructPath(&path, currentPos, goalPos, prevPos);
+    constructPath(&path, startPos, goalPos, intersectingPos, &prevPos, &nextPos);
 
     std::cout << "Shortest path: ";
     for (int i = 0; i < path.size(); i++) {
         Position p = path.at(i);
         std::cout << "(" << (int)p.x << "," << (int)p.y << "),";
-        roadmap.set(p.x, p.y, i * 10);
+        roadmap.set(p.x, p.y, i * COST_BETWEEN_COORDS);
     }
     std::cout << std::endl;
 
@@ -211,7 +287,7 @@ std::vector<Position> Planner::getShortestPath(Position currentPos, Position goa
  * @param req the request
  * @param res the response
  */
-bool Planner::getPlanCallback(GetPlan::Request &req, GetPlan::Response &res) {
+bool Planner::getPlanCallback(GetPlan::Request & req, GetPlan::Response & res) {
     std::string id = (std::string)req.id;
     auto it = agents.find(id);
 
