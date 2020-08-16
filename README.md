@@ -16,10 +16,8 @@ A single "planner" ROS node is responsible for planning paths for one or many "a
 <li> Agents all start at time t0 and cannot stop to wait at any point
 <li> Theta values are ignored as each agent has omni-wheen drive
 
-![alt text](screenshots/base_case.png "Base case")
-
 ---
-## Implementation sSummary
+## Implementation Summary
 * The planner uses a bi-directional breadth-first search (BFS) algorithm to perform path planning. This involves performing BFS from an agent's start and end point simultaneously until the two searches intersect.
 * The "roadmap" grid is stored as a 2D vector of Positions (x, y, theta). This allows for O(1) indexing, and coordinates are simply considered to be "connected" to neighboring coordinates above, below and to either side.
 * The Planner updates each coordinate with an "occupiedTime", a time in seconds from t0 when an Agent will be centered on that coordinate. This is used for preventing collisions between multiple agents while allowing their paths to intersect.
