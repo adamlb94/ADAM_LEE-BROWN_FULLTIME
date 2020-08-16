@@ -39,7 +39,7 @@ std::vector<Position> PathCache::get(Position startPos, Position endPos) {
 
         auto endIt = startIt->second.find(end);
         if (endIt != startIt->second.end()) {
-            std::cout << "(Cache.get) PATH EXISTS" << std::endl;
+            std::cout << "(Cache.get) Path exists" << std::endl;
             path = endIt->second;
         }
     }

@@ -76,7 +76,21 @@ void Roadmap::set(int x, int y, CellOccupation occupation) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
         roadmap[x][y] = occupation;
     }
-};
+}
+
+/**
+ * Returns the value at the given x-y coordinate.
+ *
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @return the value at the given x-y coordinate
+ */
+Roadmap::CellOccupation Roadmap::at(int x, int y) {
+    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+        return roadmap[x][y];
+    }
+    return CellOccupation(-1, -1);
+}
 
 /**
  * Add a grid marker to the given marker array at the given x-y coordinate.

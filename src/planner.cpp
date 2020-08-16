@@ -115,7 +115,6 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
             prevPos->at(x).at(y) = pos;
             if (bfsFromEndOccupations->at(x).at(y).time != INT_MAX) {
                 /* If other BFS direction has not already marked the intersecting point, set it */
-                ROS_WARN("INTERSECTING POINT = %d, %d", x, y);
                 *intersectingPos = position(x, y);
                 return true;
             }
@@ -195,12 +194,10 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     /* Start from the intersecting position and work back to the start point */
     int x = intersectingPos.x;
     int y = intersectingPos.y;
-    ROS_INFO("1 XY = %d, %d", x, y);
 
     path->push_back(intersectingPos);
     while (prevPos->at(x).at(y).x != startPos.x || prevPos->at(x).at(y).y != startPos.y) {
         Position prev = prevPos->at(x).at(y);
-        ROS_INFO("2 XY = %d, %d", prev.x, prev.y);
         path->push_back(prev);
         x = prev.x;
         y = prev.y;
@@ -208,23 +205,18 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     path->push_back(startPos);
 
     /* Get the first half of the path in the correct order */
-    ROS_INFO("Reversing");
     std::reverse(path->begin(), path->end());
-    ROS_INFO("Reversed");
 
     x = intersectingPos.x;
     y = intersectingPos.y;
-    ROS_INFO("3 XY = %d, %d", x, y);
 
     while ((x > 0 && y > 0) && (nextPos->at(x).at(y).x != goalPos.x || nextPos->at(x).at(y).y != goalPos.y)) {
         Position next = nextPos->at(x).at(y);
-        ROS_INFO("4 XY = %d, %d", next.x, next.y);
         path->push_back(next);
         x = next.x;
         y = next.y;
     }
     path->push_back(goalPos);
-    ROS_INFO("PATH CONSTRUCTED");
 }
 
 /**
@@ -236,24 +228,24 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
  * @return true if the roadmap at the given x-y position will be occupied
  */
 bool Planner::isOccupied(int x, int y, Roadmap::CellOccupation occupation) {
-    if (roadmap.roadmap[x][y].time < 0) {
+    Roadmap::CellOccupation cell = roadmap.at(x, y);
+    if (cell.time < 0) {
         /* No other agent so far will ever enter this cell */
         return false;
     }
 
-    if (std::abs(occupation.time - roadmap.roadmap[x][y].time) > MIN_CLEARANCE) {
+    if (std::abs(occupation.time - cell.time) > MIN_CLEARANCE) {
         /* This cell will not be occupied at the time this agent would arrive */
         return false;
     }
 
-    if (std::abs(occupation.time - roadmap.roadmap[x][y].time) < MIN_CLEARANCE) {
+    if (std::abs(occupation.time - cell.time) < MIN_CLEARANCE) {
         /* This cell will be occupied at the time this agent would arrive */
         return true;
     }
 
     /* If agent is moving in the same direction as the agent directly in front of it, MIN_CLEARANCE is an acceptable delta */
-    ROS_WARN("COMPARING ANGLES: %d and %d", occupation.movementAngle, roadmap.roadmap[x][y].movementAngle);
-    bool movingInSameDirection = occupation.movementAngle == roadmap.roadmap[x][y].movementAngle;
+    bool movingInSameDirection = occupation.movementAngle == cell.movementAngle;
     return !movingInSameDirection;
 }
 
@@ -270,7 +262,6 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
     Roadmap::CellOccupation occupation(0, -1);
     if (isOccupied(startPos.x, startPos.y, occupation)) {
         ROS_WARN("(getShortestPath) Robot starting at (%d, %d) will result in a collision!", startPos.x, startPos.y);
-        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y].time);
         return path;
     }
 
@@ -311,14 +302,6 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
         roadmap.set(p.x, p.y, Roadmap::CellOccupation(time, movementAngle));
     }
     std::cout << std::endl;
-
-    /* Print entire roadmap, with path shown as true values */ // TODO: remove
-    for (int row = 0; row < WIDTH; row++)  {
-        for (int col = 0; col < HEIGHT; col++) {
-            std::cout << roadmap.roadmap[row][col].movementAngle << ", ";
-        }
-        std::cout << std::endl;
-    }
 
     pathCache.put(path);
     return path;
@@ -365,10 +348,9 @@ void Planner::init(int argc, char **argv) {
 
     roadmap.init(nodeHandle);
 
-    ROS_INFO("Ready to receive requests from agent.");
     agentFeedbackSubscriber = nodeHandle->subscribe(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE, &Planner::agentFeedbackCallback, this);
     getPlanServer = nodeHandle->advertiseService(GET_PLAN_SERVICE, &Planner::getPlanCallback, this);
-    ROS_INFO("Subscribed.");
+    ROS_INFO("Ready to receive requests from agent.");
 }
 
 /**
