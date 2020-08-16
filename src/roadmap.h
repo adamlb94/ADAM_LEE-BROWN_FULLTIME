@@ -1,13 +1,11 @@
 #ifndef ROADMAP_H
 #define ROADMAP_H
 
+#include "common.h"
 #include "ros/ros.h"
 #include "multi_agent_planning/Position.h"
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-
-#define WIDTH 11
-#define HEIGHT 11
 
 /**
  * Roadmap for use by multi-agent path planner.

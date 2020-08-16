@@ -10,8 +10,8 @@
   <node pkg="multi_agent_planning" name="agent_5" type="agent" args="agent_5 5 5 0"/>
 
   <node pkg="rosservice" name="agent_1_update_goal" type="rosservice" args="call /agent_1/update_goal 0 5 0"/>
-  <node pkg="rosservice" name="agent_2_update_goal" type="rosservice" args="call /agent_2/update_goal 5 10 0"/>
-  <node pkg="rosservice" name="agent_3_update_goal" type="rosservice" args="call /agent_3/update_goal 10 5 0"/>
+  <node pkg="rosservice" name="agent_2_update_goal" type="rosservice" args="call /agent_2/update_goal 5 9 0"/>
+  <node pkg="rosservice" name="agent_3_update_goal" type="rosservice" args="call /agent_3/update_goal 9 5 0"/>
   <node pkg="rosservice" name="agent_4_update_goal" type="rosservice" args="call /agent_4/update_goal 5 0 0"/>
-  <node pkg="rosservice" name="agent_5_update_goal" type="rosservice" args="call /agent_5/update_goal 10 10 0"/>
+  <node pkg="rosservice" name="agent_5_update_goal" type="rosservice" args="call /agent_5/update_goal 9 9 0"/>
 </launch>
