@@ -81,9 +81,6 @@ Visualization Manager:
       Namespaces:
         agent_1: true
         agent_2: true
-        agent_3: true
-        agent_4: true
-        agent_5: true
       Queue Size: 200
       Value: true
     - Class: rviz/Marker
@@ -93,9 +90,6 @@ Visualization Manager:
       Namespaces:
         agent_1: true
         agent_2: true
-        agent_3: true
-        agent_4: true
-        agent_5: true
       Queue Size: 200
       Value: true
     - Class: rviz/Marker
@@ -105,8 +99,6 @@ Visualization Manager:
       Namespaces:
         pathagent_1: true
         pathagent_2: true
-        pathagent_3: true
-        pathagent_4: true
       Queue Size: 1000
       Value: true
   Enabled: true

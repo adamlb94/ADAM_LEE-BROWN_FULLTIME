@@ -49,27 +49,22 @@ In {YOUR_CATKIN_WORKSPACE}:
 * "roslaunch multi_agent_planning base_case.launch"
   * This launches the case included in the task specifications: agent_1 moving from (2,0,0) (black) to (2,5,0) (red), and agent_2 moving from (0,3,0) (black) to (6,3,0) (green).
 ![alt text](screenshots/base_case.png "base_case")
-* "roslaunch multi_agent_planning start_position_collision.
-  * As well as the two agents from base_case.launch, there are another two agents with identical start positions. Only one of those agents will have a computed path, and thus only three of the four paths will be displayed in rviz.
-![alt text](screenshots/start_position_collision.png "start_position_collision")
-* "roslaunch multi_agent_planning no_possible_path.launch""no_possible_path")launch"
-  * Five agents are created, one agent at (5,5,0), and the other four directly above, below and to either side. The agent at (5,5,0) has no possible path, as it is assumed that the agent can never "wait" at a position.
-![alt text](screenshots/no_possible_path.png "no_possible_path")
 
 #### Tests
 In {YOUR_CATKIN_WORKSPACE}:
 * "rostest multi_agent_planning test.test"
-  * This tests the case included in the task specifications: agent_1 moving from (2,0,0) to (2,5,0), and agent_2 moving from (0,3,0) to (6,3,0).
+  * This tests the case included in the task specifications described above.
 
 ---
 
 ## Future work
 Given additional time to work on this project, I would make the following improvements:
-* Store the movement direction of each agent in the points within its path. This would allow one agent to follow another in the grid cell directly behind the other if they are both moving in the same direction. Currently, if agent A was at point (5,5) moving to point (6,5), and agent B was at (5,4), Agent B could not directly move to point (5,5) because the agents would collide given their 0.45m radius. However, if agent A was moving to point (5,6), Agent B could move to point (5,5) as they would be moving in the same direction and thus not collide.
-* Additional input argument checking.
+* Check the PathCache during the BFS.
+  * Currently the PathCache is only checked at the beginning of the path planning, not during. It would be more efficient to terminate the BFS early if part of the new agent's path matches a path in the cache. However, this would have negligible perfomance benefit given the small size of the grid
 * Allow agents to be removed/re-defined.
   * Currently, if you start the Planner node and create an agent with ID "agent_1", that agent will not be removed and will occupy space on the grid until the Planner is terminated. This would also allow the PathCache to become useful.
 * Make the grid 3D.
   * It should be a relatively simple process to convert the 10x10 2D grid to a 10x10x10 3D one. This would provide a base for exploring rudimentary air-traffic managment style collision-avoidance techniques.
 * Simulate movement, and allow agents to be created at times after t0.
   * This would require more complex path planning by the Planner.
+* Additional input argument checking.
