@@ -42,6 +42,7 @@ void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
     for (int x = 0; x < WIDTH; x++)  {
         for (int y = 0; y < HEIGHT; y++) {
             roadmap[x][y].time = -1;
+            roadmap[x][y].movementAngle = -1;
         }
     }
 
