@@ -22,6 +22,17 @@ std_msgs::ColorRGBA Roadmap::rgbColor(double r, double g, double b) {
 }
 
 /**
+ * CellOccupation constructor.
+ *
+ * @param time seconds from t0 at which an agent will be centered at a point
+ * @param movementAngle angle of the robot's movement from a point in degrees
+ */
+Roadmap::CellOccupation::CellOccupation(int time, int movementAngle) {
+    this->time = time;
+    this->movementAngle = movementAngle;
+}
+
+/**
  * Constructor.
  *
  * @param nodeHandle the ROS node handle used for publishing to RVIZ
@@ -30,7 +41,7 @@ std_msgs::ColorRGBA Roadmap::rgbColor(double r, double g, double b) {
 void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
     for (int x = 0; x < WIDTH; x++)  {
         for (int y = 0; y < HEIGHT; y++) {
-            roadmap[x][y] = -1;
+            roadmap[x][y].time = -1;
         }
     }
 
@@ -58,11 +69,11 @@ void Roadmap::init(std::unique_ptr<ros::NodeHandle> &nodeHandle) {
  *
  * @param x the x-coordinate
  * @param y the y-coordinate
- * @param value the value to set
+ * @param occupation the value to set
  */
-void Roadmap::set(int x, int y, int value) {
+void Roadmap::set(int x, int y, CellOccupation occupation) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
-        roadmap[x][y] = value;
+        roadmap[x][y] = occupation;
     }
 };
 

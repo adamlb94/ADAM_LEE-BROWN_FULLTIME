@@ -15,17 +15,6 @@ const int x_directions[] = {1, 0, -1, 0};
 const int y_directions[] = {0, 1, 0, -1};
 
 /**
- * CellOccupation constructor.
- *
- * @param time seconds from t0 at which an agent will be centered at a point
- * @param movementAngle angle of the robot's movement from a point in degrees
- */
-Planner::CellOccupation::CellOccupation(int time, int movementAngle) {
-    this->time = time;
-    this->movementAngle = movementAngle;
-}
-
-/**
  * Callback for AGENT_FEEDBACK_TOPIC.
  *
  * @param msg the ROS message
@@ -69,8 +58,8 @@ Position Planner::position(int x, int y) {
  * @param y the y-coordinate
  * @return the occupitions
  */
-Planner::CellOccupation Planner::calculateCellOccupation(std::vector<std::vector<CellOccupation>> occupations, int startX, int startY) {
-    CellOccupation occupation(INT_MAX, -1);
+Roadmap::CellOccupation Planner::calculateCellOccupation(std::vector<std::vector<Roadmap::CellOccupation>> occupations, int startX, int startY) {
+    Roadmap::CellOccupation occupation(INT_MAX, -1);
 
     for (int dir = 0; dir < sizeof(x_directions); dir++) {
         int x = startX + x_directions[dir];
@@ -100,7 +89,7 @@ Planner::CellOccupation Planner::calculateCellOccupation(std::vector<std::vector
  * @param intersectingPos position to set when an intersection between the two BFS directional searches are found
  * @return true if an intersection is found
  */
-bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vector<CellOccupation>> *bfsFromStartOccupations, std::vector<std::vector<CellOccupation>> *bfsFromEndOccupations, std::vector<std::vector<Position>> *prevPos, std::queue<Position> *queue, Position *intersectingPos) {
+bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vector<Roadmap::CellOccupation>> *bfsFromStartOccupations, std::vector<std::vector<Roadmap::CellOccupation>> *bfsFromEndOccupations, std::vector<std::vector<Position>> *prevPos, std::queue<Position> *queue, Position *intersectingPos) {
     for (int dir = 0; dir < sizeof(x_directions); dir++) {
         int x = pos.x + x_directions[dir];
         int y = pos.y + y_directions[dir];
@@ -110,7 +99,7 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
             continue;
         }
         if (bfsFromStartOccupations->at(x).at(y).time == INT_MAX) {
-            CellOccupation occupation = calculateCellOccupation(*bfsFromStartOccupations, x, y);
+            Roadmap::CellOccupation occupation = calculateCellOccupation(*bfsFromStartOccupations, x, y);
             bfsFromStartOccupations->at(x).at(y) = occupation;
 
             if (isOccupied(x, y, occupation)) { // TODO: improve based on theta
@@ -149,10 +138,10 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
  */
 bool Planner::planPath(Position startPos, Position goalPos, std::vector<std::vector<Position>> *prevPos, std::vector<std::vector<Position>> *nextPos, Position *intersectingPos) {
     std::queue<Position> bfsFromStartQueue;
-    std::vector<std::vector<CellOccupation>> bfsFromStartOccupations(WIDTH, std::vector<CellOccupation>(HEIGHT, CellOccupation(INT_MAX, 1)));
+    std::vector<std::vector<Roadmap::CellOccupation>> bfsFromStartOccupations(WIDTH, std::vector<Roadmap::CellOccupation>(HEIGHT, Roadmap::CellOccupation(INT_MAX, 1)));
 
     std::queue<Position> bfsFromEndQueue;
-    std::vector<std::vector<CellOccupation>> bfsFromEndOccupations(WIDTH, std::vector<CellOccupation>(HEIGHT, CellOccupation(INT_MAX, 1)));
+    std::vector<std::vector<Roadmap::CellOccupation>> bfsFromEndOccupations(WIDTH, std::vector<Roadmap::CellOccupation>(HEIGHT, Roadmap::CellOccupation(INT_MAX, 1)));
 
     /* Insert startPos into bfsFromStartQueue */
     bfsFromStartOccupations.at(startPos.x).at(startPos.y).time = 0;
@@ -237,8 +226,8 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
  * @param occupation seconds until the agent will arrive at the coordinate
  * @return true if the roadmap at the given x-y position will be occupied
  */
-bool Planner::isOccupied(int x, int y, CellOccupation occupation) {
-    return roadmap.roadmap[x][y] >= 0 && std::abs(occupation.time - roadmap.roadmap[x][y]) <= MIN_CLEARANCE;
+bool Planner::isOccupied(int x, int y, Roadmap::CellOccupation occupation) {
+    return roadmap.roadmap[x][y].time >= 0 && std::abs(occupation.time - roadmap.roadmap[x][y].time) <= MIN_CLEARANCE;
 }
 
 /**
@@ -251,10 +240,10 @@ bool Planner::isOccupied(int x, int y, CellOccupation occupation) {
 std::vector<Position> Planner::getShortestPath(Position startPos, Position goalPos) {
     std::vector<Position> path;
 
-    CellOccupation occupation(0, -1);
+    Roadmap::CellOccupation occupation(0, -1);
     if (isOccupied(startPos.x, startPos.y, occupation)) {
         ROS_WARN("(getShortestPath) Robot starting at (%d, %d) will result in a collision!", startPos.x, startPos.y);
-        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y]);
+        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y].time);
         return path;
     }
 
@@ -283,14 +272,14 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
     for (int i = 0; i < path.size(); i++) {
         Position p = path.at(i);
         std::cout << "(" << (int)p.x << "," << (int)p.y << "),";
-        roadmap.set(p.x, p.y, i * COST_BETWEEN_COORDS);
+        roadmap.set(p.x, p.y, Roadmap::CellOccupation(i * COST_BETWEEN_COORDS, -1));
     }
     std::cout << std::endl;
 
-    /* Print entire roadmap, with path shown as true values */
+    /* Print entire roadmap, with path shown as true values */ // TODO: remove
     for (int row = 0; row < WIDTH; row++)  {
         for (int col = 0; col < HEIGHT; col++) {
-            std::cout << roadmap.roadmap[row][col] << ", ";
+            std::cout << roadmap.roadmap[row][col].time << ", ";
         }
         std::cout << std::endl;
     }
