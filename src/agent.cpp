@@ -69,7 +69,6 @@ void Agent::getPlan() {
  */
 int Agent::init(int argc, char **argv) {
     /* Assign agent attributes */
-    // TODO: input value checks
     id = argv[1];
     pos.x = atoi(argv[2]);
     pos.y = atoi(argv[3]);

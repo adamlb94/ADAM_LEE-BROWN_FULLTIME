@@ -170,9 +170,9 @@ TEST(Test, twoAgentsWithIntersectingPaths) {
     expectedPath2.push_back(position(1, 1, 0));
     expectedPath2.push_back(position(2, 1, 0));
     expectedPath2.push_back(position(3, 1, 0));
-    expectedPath2.push_back(position(3, 2, 0));
-    expectedPath2.push_back(position(3, 3, 0));
-    expectedPath2.push_back(position(4, 3, 0));
+    expectedPath2.push_back(position(4, 1, 0));
+    expectedPath2.push_back(position(5, 1, 0));
+    expectedPath2.push_back(position(5, 2, 0));
     expectedPath2.push_back(position(5, 3, 0));
     expectedPath2.push_back(position(6, 3, 0));
 

@@ -1,4 +1,5 @@
 #include "planner.h"
+#include <cmath>
 
 /* ROS node name */
 #define NODE_NAME "planner"
@@ -13,6 +14,7 @@ using namespace multi_agent_planning;
 
 const int x_directions[] = {1, 0, -1, 0};
 const int y_directions[] = {0, 1, 0, -1};
+const int angle_directions[] = {180, 90, 0, -90};
 
 /**
  * Callback for AGENT_FEEDBACK_TOPIC.
@@ -51,15 +53,16 @@ Position Planner::position(int x, int y) {
 }
 
 /**
- * Return the minimum cost of the grid cell at the given x-y coordinates based on its surrounding cells.
+ * Return the occupation of grid cell at the given x-y coordinates, based on its surrounding cells.
  *
- * @param costs the roadmap
+ * @param occupations the grid of CellOccupations
  * @param x the x-coordinate
  * @param y the y-coordinate
- * @return the cost
+ * @return the occupitions
  */
-int Planner::getValue(std::vector<std::vector<int>> costs, int startX, int startY) {
-    int minCost = INT_MAX;
+Roadmap::CellOccupation Planner::calculateCellOccupation(std::vector<std::vector<Roadmap::CellOccupation>> occupations, int startX, int startY) {
+    Roadmap::CellOccupation occupation(INT_MAX, -1);
+
     for (int dir = 0; dir < sizeof(x_directions); dir++) {
         int x = startX + x_directions[dir];
         int y = startY + y_directions[dir];
@@ -67,9 +70,17 @@ int Planner::getValue(std::vector<std::vector<int>> costs, int startX, int start
             /* Out of bounds of the grid */
             continue;
         }
-        minCost = std::min(minCost, costs.at(x).at(y));
+        if (occupations.at(x).at(y).time < occupation.time) {
+            occupation.time = occupations.at(x).at(y).time;
+            occupation.movementAngle = angle_directions[dir];
+        }
+        occupation.time = std::min(occupation.time, occupations.at(x).at(y).time);
     }
-    return minCost == INT_MAX ? minCost : minCost + COST_BETWEEN_COORDS;
+
+    if (occupation.time != INT_MAX) {
+        occupation.time += COST_BETWEEN_COORDS;
+    }
+    return occupation;
 }
 
 /**
@@ -77,14 +88,14 @@ int Planner::getValue(std::vector<std::vector<int>> costs, int startX, int start
  *
  * @param pos the centre position to explore around
  * @param endPos the goal position, return true if found
- * @param bfsFromStartCosts costs of each coordinate when searching for the endPos from the startPos
- * @param bfsFromEndCosts costs of each coordinate when searching for the startPos from the endPos
+ * @param bfsFromStartOccupations occupation of each coordinate when searching for the endPos from the startPos
+ * @param bfsFromEndOccupations occupation of each coordinate when searching for the startPos from the endPos
  * @param prevPos links to adjacent coorinates in potential paths
  * @param queue the BFS queue
  * @param intersectingPos position to set when an intersection between the two BFS directional searches are found
  * @return true if an intersection is found
  */
-bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vector<int>> *bfsFromStartCosts, std::vector<std::vector<int>> *bfsFromEndCosts, std::vector<std::vector<Position>> *prevPos, std::queue<Position> *queue, Position *intersectingPos) {
+bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vector<Roadmap::CellOccupation>> *bfsFromStartOccupations, std::vector<std::vector<Roadmap::CellOccupation>> *bfsFromEndOccupations, std::vector<std::vector<Position>> *prevPos, std::queue<Position> *queue, Position *intersectingPos) {
     for (int dir = 0; dir < sizeof(x_directions); dir++) {
         int x = pos.x + x_directions[dir];
         int y = pos.y + y_directions[dir];
@@ -93,20 +104,18 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
             /* Out of bounds of the roadmap */
             continue;
         }
-        if (bfsFromStartCosts->at(x).at(y) == INT_MAX) {
-            int cost = getValue(*bfsFromStartCosts, x, y);
-            bfsFromStartCosts->at(x).at(y) = cost;
+        if (bfsFromStartOccupations->at(x).at(y).time == INT_MAX) {
+            Roadmap::CellOccupation occupation = calculateCellOccupation(*bfsFromStartOccupations, x, y);
+            bfsFromStartOccupations->at(x).at(y) = occupation;
 
-            if (isOccupied(x, y, cost)) { // TODO: improve based on theta
+            if (isOccupied(x, y, occupation)) {
                 continue;
             }
 
             prevPos->at(x).at(y) = pos;
-            if (bfsFromEndCosts->at(x).at(y) != INT_MAX) {
-                if (intersectingPos->x == -1) {
-                    /* If other BFS direction has not already marked the intersecting point, set it */
-                    *intersectingPos = position(x, y);
-                }
+            if (bfsFromEndOccupations->at(x).at(y).time != INT_MAX) {
+                /* If other BFS direction has not already marked the intersecting point, set it */
+                *intersectingPos = position(x, y);
                 return true;
             }
 
@@ -133,32 +142,36 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
  */
 bool Planner::planPath(Position startPos, Position goalPos, std::vector<std::vector<Position>> *prevPos, std::vector<std::vector<Position>> *nextPos, Position *intersectingPos) {
     std::queue<Position> bfsFromStartQueue;
-    std::vector<std::vector<int>> bfsFromStartCosts(WIDTH, std::vector<int>(HEIGHT, INT_MAX));
+    std::vector<std::vector<Roadmap::CellOccupation>> bfsFromStartOccupations(WIDTH, std::vector<Roadmap::CellOccupation>(HEIGHT, Roadmap::CellOccupation(INT_MAX, 1)));
 
     std::queue<Position> bfsFromEndQueue;
-    std::vector<std::vector<int>> bfsFromEndCosts(WIDTH, std::vector<int>(HEIGHT, INT_MAX));
+    std::vector<std::vector<Roadmap::CellOccupation>> bfsFromEndOccupations(WIDTH, std::vector<Roadmap::CellOccupation>(HEIGHT, Roadmap::CellOccupation(INT_MAX, 1)));
 
     /* Insert startPos into bfsFromStartQueue */
-    bfsFromStartCosts.at(startPos.x).at(startPos.y) = 0;
+    bfsFromStartOccupations.at(startPos.x).at(startPos.y).time = 0;
     bfsFromStartQueue.push(startPos);
 
     /* Insert endPos into bfsFromEndQueue */
-    bfsFromEndCosts.at(goalPos.x).at(goalPos.y) = 0;
+    bfsFromEndOccupations.at(goalPos.x).at(goalPos.y).time = 0;
     bfsFromEndQueue.push(goalPos);
 
     /* BFS traversal */
+    bool found1 = false;
+    bool found2 = false;
     while (!bfsFromStartQueue.empty() && !bfsFromEndQueue.empty()) {
-        Position bfsFromStartCurrPos = bfsFromStartQueue.front();
-        bfsFromStartQueue.pop();
-
-        Position bfsFromEndCurrPos = bfsFromEndQueue.front();
-        bfsFromEndQueue.pop();
-
         /* Check both BFS directions before returning early so they can both populate the next/prev positions of the intersecting point  */
-        bool found = exploreCoord(bfsFromStartCurrPos, goalPos, &bfsFromStartCosts, &bfsFromEndCosts, prevPos, &bfsFromStartQueue, intersectingPos);
-        found |= exploreCoord(bfsFromEndCurrPos, startPos, &bfsFromEndCosts, &bfsFromStartCosts, nextPos, &bfsFromEndQueue, intersectingPos);
+        if (!found1) {
+            Position bfsFromStartCurrPos = bfsFromStartQueue.front();
+            bfsFromStartQueue.pop();
+            found1 = exploreCoord(bfsFromStartCurrPos, goalPos, &bfsFromStartOccupations, &bfsFromEndOccupations, prevPos, &bfsFromStartQueue, intersectingPos);
+        }
+        if (!found2) {
+            Position bfsFromEndCurrPos = bfsFromEndQueue.front();
+            bfsFromEndQueue.pop();
+            found2 = exploreCoord(bfsFromEndCurrPos, startPos, &bfsFromEndOccupations, &bfsFromStartOccupations, nextPos, &bfsFromEndQueue, intersectingPos);
+        }
 
-        if (found) {
+        if (found1 && found2) {
             return true;
         }
     }
@@ -181,11 +194,9 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     /* Start from the intersecting position and work back to the start point */
     int x = intersectingPos.x;
     int y = intersectingPos.y;
-    ROS_INFO("XY = %d, %d", x, y);
 
     path->push_back(intersectingPos);
     while (prevPos->at(x).at(y).x != startPos.x || prevPos->at(x).at(y).y != startPos.y) {
-        ROS_INFO("XY = %d, %d", x, y);
         Position prev = prevPos->at(x).at(y);
         path->push_back(prev);
         x = prev.x;
@@ -194,23 +205,18 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
     path->push_back(startPos);
 
     /* Get the first half of the path in the correct order */
-    ROS_INFO("Reversing");
     std::reverse(path->begin(), path->end());
-    ROS_INFO("Reversed");
 
     x = intersectingPos.x;
     y = intersectingPos.y;
-    ROS_INFO("XY = %d, %d", x, y);
 
-    while (nextPos->at(x).at(y).x != goalPos.x || nextPos->at(x).at(y).y != goalPos.y) {
-        ROS_INFO("XY = %d, %d", x, y);
+    while ((x > 0 && y > 0) && (nextPos->at(x).at(y).x != goalPos.x || nextPos->at(x).at(y).y != goalPos.y)) {
         Position next = nextPos->at(x).at(y);
         path->push_back(next);
         x = next.x;
         y = next.y;
     }
     path->push_back(goalPos);
-    ROS_INFO("PATH CONSTRUCTED");
 }
 
 /**
@@ -218,11 +224,29 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
  *
  * @param x the x-coordinate
  * @param y the y-coordinate
- * @param arrivalTime seconds until the agent will arrive at the coordinate
+ * @param occupation seconds until the agent will arrive at the coordinate
  * @return true if the roadmap at the given x-y position will be occupied
  */
-bool Planner::isOccupied(int x, int y, int arrivalTime) {
-    return roadmap.roadmap[x][y] >= 0 && std::abs(arrivalTime - roadmap.roadmap[x][y]) <= MIN_CLEARANCE;
+bool Planner::isOccupied(int x, int y, Roadmap::CellOccupation occupation) {
+    Roadmap::CellOccupation cell = roadmap.at(x, y);
+    if (cell.time < 0) {
+        /* No other agent so far will ever enter this cell */
+        return false;
+    }
+
+    if (std::abs(occupation.time - cell.time) > MIN_CLEARANCE) {
+        /* This cell will not be occupied at the time this agent would arrive */
+        return false;
+    }
+
+    if (std::abs(occupation.time - cell.time) < MIN_CLEARANCE) {
+        /* This cell will be occupied at the time this agent would arrive */
+        return true;
+    }
+
+    /* If agent is moving in the same direction as the agent directly in front of it, MIN_CLEARANCE is an acceptable delta */
+    bool movingInSameDirection = occupation.movementAngle == cell.movementAngle;
+    return !movingInSameDirection;
 }
 
 /**
@@ -234,9 +258,10 @@ bool Planner::isOccupied(int x, int y, int arrivalTime) {
  */
 std::vector<Position> Planner::getShortestPath(Position startPos, Position goalPos) {
     std::vector<Position> path;
-    if (isOccupied(startPos.x, startPos.y, 0)) {
+
+    Roadmap::CellOccupation occupation(0, -1);
+    if (isOccupied(startPos.x, startPos.y, occupation)) {
         ROS_WARN("(getShortestPath) Robot starting at (%d, %d) will result in a collision!", startPos.x, startPos.y);
-        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y]);
         return path;
     }
 
@@ -265,17 +290,18 @@ std::vector<Position> Planner::getShortestPath(Position startPos, Position goalP
     for (int i = 0; i < path.size(); i++) {
         Position p = path.at(i);
         std::cout << "(" << (int)p.x << "," << (int)p.y << "),";
-        roadmap.set(p.x, p.y, i * COST_BETWEEN_COORDS);
+
+        int time = i * COST_BETWEEN_COORDS;
+        int movementAngle = -1;
+        if (i < path.size() - 1) {
+            Position p1 = path.at(i);
+            Position p2 = path.at(i + 1);
+            float radAngle = atan2(p1.y - p2.y, p1.x - p2.x);
+            movementAngle = (int) (radAngle * 180 / M_PI);
+        }
+        roadmap.set(p.x, p.y, Roadmap::CellOccupation(time, movementAngle));
     }
     std::cout << std::endl;
-
-    /* Print entire roadmap, with path shown as true values */
-    for (int row = 0; row < WIDTH; row++)  {
-        for (int col = 0; col < HEIGHT; col++) {
-            std::cout << roadmap.roadmap[row][col] << ", ";
-        }
-        std::cout << std::endl;
-    }
 
     pathCache.put(path);
     return path;
@@ -293,7 +319,6 @@ bool Planner::getPlanCallback(GetPlan::Request & req, GetPlan::Response & res) {
 
     if (it == agents.end()) {
         ROS_WARN("(getPlanCallback) agent not found!");
-        // TODO: Need to return message?
         return false;
     } else {
         it->second.setGoalPos(req.goalPos);
@@ -323,10 +348,9 @@ void Planner::init(int argc, char **argv) {
 
     roadmap.init(nodeHandle);
 
-    ROS_INFO("Ready to receive requests from agent.");
     agentFeedbackSubscriber = nodeHandle->subscribe(AGENT_FEEDBACK_TOPIC, QUEUE_SIZE, &Planner::agentFeedbackCallback, this);
     getPlanServer = nodeHandle->advertiseService(GET_PLAN_SERVICE, &Planner::getPlanCallback, this);
-    ROS_INFO("Subscribed.");
+    ROS_INFO("Ready to receive requests from agent.");
 }
 
 /**
