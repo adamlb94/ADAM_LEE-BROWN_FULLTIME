@@ -18,6 +18,15 @@ private:
     ros::Publisher pathMarkerArrayPublisher;
     ros::Publisher pathLinePublisher;
 
+    std::vector<std_msgs::ColorRGBA> colors;
+    int agentColorCount;
+
+    std_msgs::ColorRGBA rgbColor(double r, double g, double b);
+    void addGridPointMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y);
+    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y);
+    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y, std_msgs::ColorRGBA color);
+    void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, std_msgs::ColorRGBA color);
+
 public:
     int roadmap[WIDTH][HEIGHT]; // TODO: make private
 
@@ -26,14 +35,6 @@ public:
 
     void displayRoadmap();
     void displayPath(std::string id, std::vector<multi_agent_planning::Position> path, std::unique_ptr<ros::NodeHandle> &nodeHandle);
-
-    void addGridPointMarker(visualization_msgs::MarkerArray *gridPointMarkers, int x, int y);
-    void addAgentMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y);
-    void addGoalMarker(visualization_msgs::MarkerArray *gridPointMarkers, std::string agentId, int x, int y);
-    void addMarker(visualization_msgs::MarkerArray *gridPointMarkers, int i, std::string ns, int x, int y, double xScale, double yScale, double red, double green, double blue);
-
-    std::string toAlnum(std::string id);
-    std::string toNum(std::string id);
 };
 
 #endif
