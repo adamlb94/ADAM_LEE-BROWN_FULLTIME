@@ -1,6 +1,5 @@
 #include "roadmap.h"
 #include "ros/ros.h"
-#include <functional> // for std::hash
 #include <vector>
 
 using namespace multi_agent_planning;
@@ -152,7 +151,7 @@ void Roadmap::displayRoadmap() {
         }
     }
 
-    // Publish the marker
+    /* Publish the marker */
     while (gridMarkerArrayPublisher.getNumSubscribers() < 1) {
         if (!ros::ok()) {
             return;

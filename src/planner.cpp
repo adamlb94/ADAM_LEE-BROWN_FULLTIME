@@ -97,7 +97,7 @@ bool Planner::exploreCoord(Position pos, Position endPos, std::vector<std::vecto
             int cost = getValue(*bfsFromStartCosts, x, y);
             bfsFromStartCosts->at(x).at(y) = cost;
 
-            if (roadmap.roadmap[x][y] != INT_MAX && std::abs(cost - roadmap.roadmap[x][y]) <= MIN_CLEARANCE) { // TODO: improve based on theta
+            if (isOccupied(x, y, cost)) { // TODO: improve based on theta
                 continue;
             }
 
@@ -204,6 +204,18 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
 }
 
 /**
+ * Returns true if the roadmap at the given x-y position will be occupied in arrivalTime seconds.
+ *
+ * @param x the x-coordinate
+ * @param y the y-coordinate
+ * @param arrivalTime seconds until the agent will arrive at the coordinate
+ * @return true if the roadmap at the given x-y position will be occupied
+ */
+bool Planner::isOccupied(int x, int y, int arrivalTime) {
+    return roadmap.roadmap[x][y] >= 0 && std::abs(arrivalTime - roadmap.roadmap[x][y]) <= MIN_CLEARANCE;
+}
+
+/**
  * Finds the shortest path between the given positions. The given positions are NOT included in the path.
  *
  * @param startPos the agent's start position
@@ -211,7 +223,14 @@ void Planner::constructPath(std::vector<Position> *path, Position startPos, Posi
  * @return the shortest path
  */
 std::vector<Position> Planner::getShortestPath(Position startPos, Position goalPos) {
-    std::vector<Position> path = pathCache.get(startPos, goalPos);
+    std::vector<Position> path;
+    if (isOccupied(startPos.x, startPos.y, 0)) {
+        ROS_WARN("(getShortestPath) Robot starting at (%d, %d) will result in a collision!", startPos.x, startPos.y);
+        ROS_WARN("%d", roadmap.roadmap[startPos.x][startPos.y]);
+        return path;
+    }
+
+    path = pathCache.get(startPos, goalPos);
     if (!path.empty()) {
         ROS_INFO("(getShortestPath) Path already exists, reusing it.");
         return path;
